@@ -10,4 +10,6 @@ const customerHistorySchema = new mongoose.Schema({
   notes: String
 }, { timestamps: true });
 
+require('./jsonPlugin').applyJsonTransform(customerHistorySchema);
+
 module.exports = mongoose.model('CustomerHistory', customerHistorySchema, 'customerHistories');

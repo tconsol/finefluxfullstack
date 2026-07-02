@@ -15,4 +15,6 @@ const densityRegisterSchema = new mongoose.Schema({
   organizationId: String
 }, { timestamps: true });
 
+require('./jsonPlugin').applyJsonTransform(densityRegisterSchema);
+
 module.exports = mongoose.model('DensityRegister', densityRegisterSchema, 'densityregister');

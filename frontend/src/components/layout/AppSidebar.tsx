@@ -34,12 +34,10 @@ const navigationItems: NavItem[] = [
     roles: ['owner', 'manager', 'employee'],
     children: [
       { title: 'Employees', icon: Users, href: '/employees', roles: ['owner', 'manager'] },
-      { title: 'Set Duty', icon: ClipboardList, href: '/employee-set-duty', roles: ['owner', 'manager'] },
       { title: 'Attendance', icon: UserCheck, href: '/attendance', roles: ['employee'] },
       { title: 'My Duties', icon: BarChart3, href: '/daily-duties', roles: ['employee'] },
       { title: 'Duty History', icon: ClipboardList, href: '/employee-task-history', roles: ['employee'] },
       { title: 'Special Duties', icon: Sparkles, href: '/special-duties', roles: ['employee'] },
-      { title: 'All Tasks', icon: ClipboardList, href: '/all-employee-tasks', roles: ['owner', 'manager'] },
     ],
   },
   {

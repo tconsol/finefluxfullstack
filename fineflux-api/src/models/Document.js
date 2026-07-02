@@ -12,4 +12,6 @@ const documentSchema = new mongoose.Schema({
   notes: String
 }, { timestamps: true });
 
+require('./jsonPlugin').applyJsonTransform(documentSchema);
+
 module.exports = mongoose.model('Document', documentSchema, 'documents');

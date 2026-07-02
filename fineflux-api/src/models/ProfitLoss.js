@@ -9,4 +9,6 @@ const profitLossSchema = new mongoose.Schema({
   calculatedAt: Date
 }, { timestamps: true });
 
+require('./jsonPlugin').applyJsonTransform(profitLossSchema);
+
 module.exports = mongoose.model('ProfitLoss', profitLossSchema, 'profit_loss');

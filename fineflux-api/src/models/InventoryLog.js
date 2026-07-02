@@ -16,4 +16,6 @@ const invLogSchema = new mongoose.Schema({
   empId: String
 }, { timestamps: { createdAt: 'createdAt', updatedAt: 'lastUpdated' } });
 
+require('./jsonPlugin').applyJsonTransform(invLogSchema);
+
 module.exports = mongoose.model('InventoryLog', invLogSchema, 'inventory_logs');

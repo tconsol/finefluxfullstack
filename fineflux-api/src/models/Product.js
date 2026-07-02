@@ -13,4 +13,6 @@ const productSchema = new mongoose.Schema({
   empId: String
 }, { timestamps: true });
 
+require('./jsonPlugin').applyJsonTransform(productSchema);
+
 module.exports = mongoose.model('Product', productSchema, 'products');

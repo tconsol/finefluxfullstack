@@ -17,4 +17,6 @@ const salesSchema = new mongoose.Schema({
   inventoryId: String
 }, { timestamps: true });
 
+require('./jsonPlugin').applyJsonTransform(salesSchema);
+
 module.exports = mongoose.model('Sales', salesSchema, 'sales');

@@ -7,4 +7,6 @@ const resetTokenSchema = new mongoose.Schema({
   expiryDate: { type: Date, required: true }
 });
 
+require('./jsonPlugin').applyJsonTransform(resetTokenSchema, ['token']);
+
 module.exports = mongoose.model('EmployeePasswordResetToken', resetTokenSchema, 'employee_password_reset_tokens');

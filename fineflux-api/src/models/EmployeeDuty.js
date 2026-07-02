@@ -12,4 +12,6 @@ const dutySchema = new mongoose.Schema({
   status: { type: String, enum: ['SCHEDULED', 'ACTIVE', 'COMPLETED', 'CANCELLED'] }
 }, { timestamps: true });
 
+require('./jsonPlugin').applyJsonTransform(dutySchema);
+
 module.exports = mongoose.model('EmployeeDuty', dutySchema, 'employee_duties');

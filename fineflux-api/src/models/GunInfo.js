@@ -9,4 +9,6 @@ const gunInfoSchema = new mongoose.Schema({
   currentReading: { type: Number, default: 0 }
 }, { timestamps: true });
 
+require('./jsonPlugin').applyJsonTransform(gunInfoSchema);
+
 module.exports = mongoose.model('GunInfo', gunInfoSchema, 'guninfo');

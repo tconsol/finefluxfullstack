@@ -9,8 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import axios from 'axios';
+import { API_CONFIG } from '@/lib/api-config';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://finflux-64307221061.asia-south1.run.app';
+const API_BASE = API_CONFIG.BASE_URL;
 
 export function LoginForm() {
   const [username, setUsername] = useState('');

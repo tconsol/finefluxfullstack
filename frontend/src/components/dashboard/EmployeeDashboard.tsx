@@ -14,8 +14,9 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { API_CONFIG } from '@/lib/api-config';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://finflux-64307221061.asia-south1.run.app';
+const API_BASE = API_CONFIG.BASE_URL;
 
 export function EmployeeDashboard() {
   const { user } = useAuth();

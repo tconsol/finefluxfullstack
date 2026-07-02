@@ -17,4 +17,6 @@ const organizationSchema = new mongoose.Schema({
   ownerLastName: { type: String, required: true }
 }, { timestamps: true });
 
+require('./jsonPlugin').applyJsonTransform(organizationSchema);
+
 module.exports = mongoose.model('Organization', organizationSchema, 'organizations');

@@ -20,4 +20,6 @@ const attendanceSchema = new mongoose.Schema({
   description: String
 }, { timestamps: true });
 
+require('./jsonPlugin').applyJsonTransform(attendanceSchema);
+
 module.exports = mongoose.model('EmployeeAttendance', attendanceSchema, 'employee_attendance');

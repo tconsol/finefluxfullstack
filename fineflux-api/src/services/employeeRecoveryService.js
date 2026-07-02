@@ -1,9 +1,9 @@
-const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const { Employee, EmployeePasswordResetToken } = require('../models');
 const { ApiError } = require('../middleware/errorHandler');
 const { sendMail } = require('../config/mailer');
 const env = require('../config/env');
+const { hashPassword } = require('../utils/password');
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
 
@@ -43,7 +43,7 @@ async function resetPassword(orgId, token, newPassword) {
   const employee = await Employee.findOne({ organizationId: orgId, empId: resetToken.employeeId });
   if (!employee) throw new ApiError(404, 'Employee not found');
 
-  employee.passwordHash = await bcrypt.hash(newPassword, 10);
+  employee.passwordHash = await hashPassword(newPassword);
   await employee.save();
   await EmployeePasswordResetToken.deleteOne({ _id: resetToken._id });
 }

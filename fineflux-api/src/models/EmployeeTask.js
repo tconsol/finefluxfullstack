@@ -13,4 +13,6 @@ const taskSchema = new mongoose.Schema({
   status: { type: String, enum: ['pending', 'in-progress', 'completed'], default: 'pending' }
 }, { timestamps: true });
 
+require('./jsonPlugin').applyJsonTransform(taskSchema);
+
 module.exports = mongoose.model('EmployeeTask', taskSchema, 'employee_new_tasks');

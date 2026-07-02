@@ -1,7 +1,7 @@
-const bcrypt = require('bcryptjs');
 const { Employee } = require('../models');
 const { parsePageable, paginate } = require('../utils/pagination');
 const { ApiError } = require('../middleware/errorHandler');
+const { comparePassword, hashPassword } = require('../utils/password');
 
 async function list(orgId, query) {
   return paginate(Employee, { organizationId: orgId }, parsePageable(query));
@@ -19,7 +19,7 @@ async function create(orgId, body) {
   if (await Employee.exists({ organizationId: orgId, username: body.username })) {
     throw new ApiError(409, 'username already exists in this organization');
   }
-  const passwordHash = await bcrypt.hash(body.password, 10);
+  const passwordHash = await hashPassword(body.password);
   const { password, ...rest } = body;
   return Employee.create({ ...rest, organizationId: orgId, passwordHash, status: body.status || 'ACTIVE' });
 }
@@ -43,10 +43,10 @@ async function remove(orgId, id) {
 async function changePassword(orgId, id, currentPassword, newPassword) {
   const emp = await Employee.findOne({ _id: id, organizationId: orgId });
   if (!emp) throw new ApiError(404, 'Employee not found');
-  const matches = await bcrypt.compare(currentPassword, emp.passwordHash);
+  const matches = await comparePassword(currentPassword, emp.passwordHash);
   if (!matches) throw new ApiError(400, 'Current password is incorrect');
   if (!newPassword || newPassword.length < 6) throw new ApiError(400, 'New password must be at least 6 characters');
-  emp.passwordHash = await bcrypt.hash(newPassword, 10);
+  emp.passwordHash = await hashPassword(newPassword);
   await emp.save();
 }
 

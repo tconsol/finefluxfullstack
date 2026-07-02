@@ -22,4 +22,6 @@ const customerSchema = new mongoose.Schema({
 
 customerSchema.index({ organizationId: 1, custId: 1 }, { unique: true });
 
+require('./jsonPlugin').applyJsonTransform(customerSchema);
+
 module.exports = mongoose.model('Customer', customerSchema, 'customers');

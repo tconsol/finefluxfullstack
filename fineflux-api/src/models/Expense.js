@@ -10,4 +10,6 @@ const expenseSchema = new mongoose.Schema({
   employeeName: String
 }, { timestamps: true });
 
+require('./jsonPlugin').applyJsonTransform(expenseSchema);
+
 module.exports = mongoose.model('Expense', expenseSchema, 'expense');

@@ -13,4 +13,6 @@ const inventorySchema = new mongoose.Schema({
   empId: String
 }, { timestamps: { createdAt: 'createdAt', updatedAt: 'lastUpdated' } });
 
+require('./jsonPlugin').applyJsonTransform(inventorySchema);
+
 module.exports = mongoose.model('Inventory', inventorySchema, 'inventory');

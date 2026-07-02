@@ -8,8 +8,9 @@ import {
   Users, Fuel, CreditCard, TrendingUp, DollarSign, AlertTriangle, BarChart3, Eye, RotateCcw,
   Activity, Droplets, Package
 } from 'lucide-react';
+import { API_CONFIG } from '@/lib/api-config';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://finflux-64307221061.asia-south1.run.app';
+const API_BASE = API_CONFIG.BASE_URL;
 
 const safeArray = (v: any) =>
   Array.isArray(v) ? v :

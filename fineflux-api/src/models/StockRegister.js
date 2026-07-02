@@ -15,4 +15,6 @@ const stockRegisterSchema = new mongoose.Schema({
   stockVariation: Number
 }, { timestamps: true });
 
+require('./jsonPlugin').applyJsonTransform(stockRegisterSchema);
+
 module.exports = mongoose.model('StockRegister', stockRegisterSchema, 'stockregister');

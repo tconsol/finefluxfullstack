@@ -17,4 +17,6 @@ const collectionsSchema = new mongoose.Schema({
   accessCollections: { type: Number, default: 0 }
 }, { timestamps: true });
 
+require('./jsonPlugin').applyJsonTransform(collectionsSchema);
+
 module.exports = mongoose.model('Collections', collectionsSchema, 'collections');

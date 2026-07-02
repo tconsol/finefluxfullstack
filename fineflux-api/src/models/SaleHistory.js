@@ -25,4 +25,6 @@ const saleHistorySchema = new mongoose.Schema({
 saleHistorySchema.index({ organizationId: 1, saleId: 1, mutationby: 1 }, { unique: true });
 saleHistorySchema.index({ organizationId: 1, saleId: 1 });
 
+require('./jsonPlugin').applyJsonTransform(saleHistorySchema);
+
 module.exports = mongoose.model('SaleHistory', saleHistorySchema, 'sale_history');

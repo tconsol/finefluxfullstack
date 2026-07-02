@@ -30,4 +30,6 @@ const employeeSchema = new mongoose.Schema({
 
 employeeSchema.index({ organizationId: 1, username: 1 }, { unique: true });
 
+require('./jsonPlugin').applyJsonTransform(employeeSchema, ['passwordHash']);
+
 module.exports = mongoose.model('Employee', employeeSchema, 'employees');

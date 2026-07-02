@@ -10,6 +10,12 @@ function notFoundHandler(req, res, next) {
 }
 
 function errorHandler(err, req, res, next) { // eslint-disable-line no-unused-vars
+  // A malformed/missing :id (e.g. "undefined" from a stale frontend call) reaches
+  // Mongoose as an invalid ObjectId — treat that as "not found", not a server crash.
+  if (err.name === 'CastError' && err.kind === 'ObjectId') {
+    return res.status(404).json({ message: 'Resource not found', correlationId: req.correlationId });
+  }
+
   const statusCode = err.statusCode || (err.name === 'ValidationError' ? 400 : 500);
   if (statusCode >= 500) {
     console.error(`[${req.correlationId}]`, err);

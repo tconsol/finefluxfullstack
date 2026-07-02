@@ -25,6 +25,7 @@ router.use('/profit-loss', require('./profitLossRoutes'));
 router.use('/stock-register', require('./stockRegisterRoutes'));
 router.use('/density-register', require('./densityRegisterRoutes'));
 router.use('/documents', require('./documentRoutes'));
+router.use('/bank-deposits', require('./bankDepositRoutes'));
 
 router.use('/reports', require('./reportRoutes'));
 router.use('/appsettings', require('./appSettingsRoutes'));

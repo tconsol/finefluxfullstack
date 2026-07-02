@@ -5,4 +5,6 @@ const expenseCatSchema = new mongoose.Schema({
   organizationId: String
 }, { timestamps: true });
 
+require('./jsonPlugin').applyJsonTransform(expenseCatSchema);
+
 module.exports = mongoose.model('ExpenseCategory', expenseCatSchema, 'expense_category');

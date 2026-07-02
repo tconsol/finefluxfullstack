@@ -11,6 +11,7 @@ router.get('/history/all/week', histCtrl.weekOrg);
 router.get('/history/all/month', histCtrl.monthOrg);
 router.get('/history/all/range', histCtrl.rangeOrg);
 router.get('/history/all', histCtrl.listAll);
+router.get('/history', histCtrl.listAll);
 router.post('/history', histCtrl.add);
 
 router.get('/today', ctrl.getToday);

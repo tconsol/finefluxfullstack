@@ -1,3 +1,6 @@
+import { useEffect, useState, useMemo, useCallback } from 'react';
+import axios from 'axios';
+import dayjs from 'dayjs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,21 +16,108 @@ import {
   Calendar,
   AlertCircle,
 } from 'lucide-react';
+import { API_CONFIG } from '@/lib/api-config';
+
+const API_BASE = API_CONFIG.BASE_URL;
+const safeArray = (v: any) => Array.isArray(v) ? v : Array.isArray(v?.content) ? v.content : [];
+const isSameDay = (dateStr: any, day: dayjs.Dayjs) => dateStr && dayjs(dateStr).isSame(day, 'day');
+
+function formatMinsAsHours(mins: number) {
+  if (!mins || mins <= 0) return '0h';
+  const h = Math.floor(mins / 60);
+  const m = Math.round(mins % 60);
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
 
 export function ManagerDashboard() {
   const navigate = useNavigate();
+  const orgId = localStorage.getItem('organizationId') || '';
+
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [attendanceToday, setAttendanceToday] = useState<any[]>([]);
+  const [sales, setSales] = useState<any[]>([]);
+  const [expenses, setExpenses] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchAll = useCallback(() => {
+    if (!orgId) return;
+    setLoading(true);
+    const today = dayjs();
+    const start = today.startOf('day').format('YYYY-MM-DDTHH:mm:ss');
+    const end = today.endOf('day').format('YYYY-MM-DDTHH:mm:ss');
+
+    Promise.all([
+      axios.get(`${API_BASE}/api/organizations/${orgId}/employees?page=0&size=500`),
+      axios.get(`${API_BASE}/api/organizations/${orgId}/attendance/daterange?start=${start}&end=${end}`).catch(() => ({ data: [] })),
+      axios.get(`${API_BASE}/api/organizations/${orgId}/sales`).catch(() => ({ data: [] })),
+      axios.get(`${API_BASE}/api/organizations/${orgId}/expenses`).catch(() => ({ data: [] })),
+    ])
+      .then(([empRes, attRes, salesRes, expensesRes]) => {
+        setEmployees(safeArray(empRes.data));
+        setAttendanceToday(safeArray(attRes.data));
+        setSales(safeArray(salesRes.data));
+        setExpenses(safeArray(expensesRes.data));
+      })
+      .finally(() => setLoading(false));
+  }, [orgId]);
+
+  useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  const employeeNameById = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const emp of employees) map[emp.empId] = `${emp.firstName || ''} ${emp.lastName || ''}`.trim();
+    return map;
+  }, [employees]);
+
+  const activeEmployees = useMemo(
+    () => employees.filter((e: any) => String(e.status || '').toUpperCase() === 'ACTIVE'),
+    [employees]
+  );
+
+  const presentCount = useMemo(
+    () => attendanceToday.filter((a: any) => a.present === 'YES').length,
+    [attendanceToday]
+  );
+
+  const totalShiftMins = useMemo(
+    () => attendanceToday.reduce((sum, a: any) => sum + (Number(a.workingMins) || 0), 0),
+    [attendanceToday]
+  );
+
+  const todaySales = useMemo(() => sales.filter((s: any) => isSameDay(s.dateTime, dayjs())), [sales]);
+  const todaySalesTotal = useMemo(
+    () => todaySales.reduce((sum, s: any) => sum + (Number(s.salesInRupees) || 0), 0),
+    [todaySales]
+  );
+
+  const todayExpenses = useMemo(() => expenses.filter((e: any) => isSameDay(e.expenseDate, dayjs())), [expenses]);
+  const todayExpensesTotal = useMemo(
+    () => todayExpenses.reduce((sum, e: any) => sum + (Number(e.amount) || 0), 0),
+    [todayExpenses]
+  );
+
+  const recentExpenses = useMemo(
+    () => [...expenses].sort((a: any, b: any) => new Date(b.expenseDate || b.createdAt).getTime() - new Date(a.expenseDate || a.createdAt).getTime()).slice(0, 4),
+    [expenses]
+  );
+
+  const recentSales = useMemo(
+    () => [...sales].sort((a: any, b: any) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime()).slice(0, 4),
+    [sales]
+  );
+
   const todayStats = [
     {
       title: 'Present Today',
-      value: '9/12',
-      change: '3 absent',
+      value: loading ? '...' : `${presentCount}/${activeEmployees.length}`,
+      change: loading ? '' : `${Math.max(0, activeEmployees.length - presentCount)} absent`,
       icon: Users,
       color: 'text-success',
       bgColor: 'bg-success-soft',
     },
     {
       title: 'Shift Hours',
-      value: '72h',
+      value: loading ? '...' : formatMinsAsHours(totalShiftMins),
       change: 'Total today',
       icon: Clock,
       color: 'text-primary',
@@ -35,16 +125,16 @@ export function ManagerDashboard() {
     },
     {
       title: 'Sales Today',
-      value: '₹45.2K',
-      change: '+8% vs yesterday',
+      value: loading ? '...' : `₹${todaySalesTotal.toLocaleString('en-IN')}`,
+      change: `${todaySales.length} transaction${todaySales.length !== 1 ? 's' : ''}`,
       icon: DollarSign,
       color: 'text-success',
       bgColor: 'bg-success-soft',
     },
     {
-      title: 'Expenses',
-      value: '₹8.5K',
-      change: 'Awaiting approval',
+      title: "Today's Expenses",
+      value: loading ? '...' : `₹${todayExpensesTotal.toLocaleString('en-IN')}`,
+      change: `${todayExpenses.length} expense${todayExpenses.length !== 1 ? 's' : ''}`,
       icon: TrendingDown,
       color: 'text-warning',
       bgColor: 'bg-warning-soft',
@@ -59,41 +149,12 @@ export function ManagerDashboard() {
     { title: 'Generate DSR', icon: FileText, color: 'btn-gradient-primary', action: () => navigate('/reports') },
   ];
 
-  const attendanceToday = [
-    { id: 1, name: 'Arjun Patel', time: '08:00 AM', shift: 'Morning', status: 'present' },
-    { id: 2, name: 'Sunita Sharma', time: '08:15 AM', shift: 'Morning', status: 'present' },
-    { id: 3, name: 'Ravi Kumar', time: '02:00 PM', shift: 'Afternoon', status: 'present' },
-    { id: 4, name: 'Maya Singh', time: '—', shift: 'Morning', status: 'absent' },
-  ];
-
-  const pendingExpenses = [
-    { id: 1, item: 'Fuel pump maintenance', amount: 3500, date: '2024-01-08', priority: 'high' },
-    { id: 2, item: 'Office supplies', amount: 1200, date: '2024-01-08', priority: 'low' },
-    { id: 3, item: 'Equipment repair', amount: 2800, date: '2024-01-07', priority: 'medium' },
-  ];
-
-  const recentSales = [
-    { time: '09:30 AM', type: 'Petrol Premium', quantity: 25, amount: 2750 },
-    { time: '09:45 AM', type: 'Diesel', quantity: 40, amount: 3600 },
-    { time: '10:15 AM', type: 'CNG', quantity: 15, amount: 900 },
-    { time: '10:30 AM', type: 'Petrol Regular', quantity: 30, amount: 3000 },
-  ];
-
-  const getStatusBadge = (status: string) => {
-    return status === 'present' ? (
+  const getStatusBadge = (present: string) => {
+    return present === 'YES' ? (
       <Badge className="bg-success-soft text-success">Present</Badge>
     ) : (
       <Badge className="bg-destructive-soft text-destructive">Absent</Badge>
     );
-  };
-
-  const getPriorityBadge = (priority: string) => {
-    const colors = {
-      high: 'bg-destructive-soft text-destructive',
-      medium: 'bg-warning-soft text-warning',
-      low: 'bg-muted text-muted-foreground',
-    };
-    return <Badge className={colors[priority as keyof typeof colors]}>{priority}</Badge>;
   };
 
   return (
@@ -106,17 +167,16 @@ export function ManagerDashboard() {
         </div>
 
         <div className="flex flex-wrap gap-2 justify-start sm:justify-end mt-2 sm:mt-0 shrink-0">
-          <Button variant="outline">
+          <Button variant="outline" onClick={() => navigate('/employee-duty-info')}>
             <Calendar className="mr-2 h-4 w-4" />
             Today's Schedule
           </Button>
-          <Button className="btn-gradient-primary">
+          <Button className="btn-gradient-primary" onClick={() => navigate('/reports')}>
             <FileText className="mr-2 h-4 w-4" />
             Generate DSR
           </Button>
         </div>
       </div>
-
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -178,48 +238,58 @@ export function ManagerDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {attendanceToday.map((employee) => (
-              <div key={employee.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+            {loading && <div className="text-muted-foreground text-sm">Loading...</div>}
+            {!loading && attendanceToday.length === 0 && (
+              <div className="text-muted-foreground text-sm">No attendance recorded today</div>
+            )}
+            {attendanceToday.slice(0, 6).map((a: any) => (
+              <div key={a.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
                 <div className="space-y-1">
-                  <p className="font-medium text-foreground">{employee.name}</p>
+                  <p className="font-medium text-foreground">{employeeNameById[a.empId] || a.empId}</p>
                   <p className="text-sm text-muted-foreground">
-                    {employee.shift} Shift • {employee.time}
+                    {a.checkIn ? `Checked in ${dayjs(a.checkIn).format('hh:mm A')}` : 'Not checked in'}
                   </p>
                 </div>
-                {getStatusBadge(employee.status)}
+                {getStatusBadge(a.present)}
               </div>
             ))}
-            <Button variant="outline" className="w-full">
+            <Button variant="outline" className="w-full" onClick={() => navigate('/employee-attendance')}>
               <Plus className="mr-2 h-4 w-4" />
               Mark Attendance
             </Button>
           </CardContent>
         </Card>
 
-        {/* Pending Expenses */}
+        {/* Recent Expenses */}
         <Card className="card-gradient">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <AlertCircle className="h-5 w-5" />
-              Pending Expenses
+              Recent Expenses
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {pendingExpenses.map((expense) => (
+            {loading && <div className="text-muted-foreground text-sm">Loading...</div>}
+            {!loading && recentExpenses.length === 0 && (
+              <div className="text-muted-foreground text-sm">No expenses recorded yet</div>
+            )}
+            {recentExpenses.map((expense: any) => (
               <div key={expense.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
                 <div className="space-y-1">
-                  <p className="font-medium text-foreground">{expense.item}</p>
-                  <p className="text-sm text-muted-foreground">{expense.date}</p>
+                  <p className="font-medium text-foreground">{expense.description || expense.categoryName}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {expense.expenseDate ? dayjs(expense.expenseDate).format('DD MMM YYYY') : ''}
+                  </p>
                 </div>
                 <div className="text-right space-y-1">
                   <p className="font-semibold text-foreground">
-                    ₹{expense.amount.toLocaleString()}
+                    ₹{Number(expense.amount || 0).toLocaleString('en-IN')}
                   </p>
-                  {getPriorityBadge(expense.priority)}
+                  <Badge className="bg-muted text-muted-foreground">{expense.categoryName}</Badge>
                 </div>
               </div>
             ))}
-            <Button variant="outline" className="w-full">
+            <Button variant="outline" className="w-full" onClick={() => navigate('/expenses')}>
               <Plus className="mr-2 h-4 w-4" />
               Add Expense
             </Button>
@@ -237,21 +307,25 @@ export function ManagerDashboard() {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {recentSales.map((sale, index) => (
-              <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+            {loading && <div className="text-muted-foreground text-sm">Loading...</div>}
+            {!loading && recentSales.length === 0 && (
+              <div className="text-muted-foreground text-sm">No sales recorded yet</div>
+            )}
+            {recentSales.map((sale: any) => (
+              <div key={sale.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
                 <div className="flex items-center gap-4">
-                  <div className="text-sm text-muted-foreground">{sale.time}</div>
+                  <div className="text-sm text-muted-foreground">{dayjs(sale.dateTime).format('hh:mm A')}</div>
                   <div>
-                    <p className="font-medium text-foreground">{sale.type}</p>
-                    <p className="text-sm text-muted-foreground">{sale.quantity}L</p>
+                    <p className="font-medium text-foreground">{sale.productName}</p>
+                    <p className="text-sm text-muted-foreground">{Number(sale.salesInLiters || 0).toFixed(2)}L</p>
                   </div>
                 </div>
                 <p className="font-semibold text-foreground">
-                  ₹{sale.amount.toLocaleString()}
+                  ₹{Number(sale.salesInRupees || 0).toLocaleString('en-IN')}
                 </p>
               </div>
             ))}
-            <Button variant="outline" className="w-full">
+            <Button variant="outline" className="w-full" onClick={() => navigate('/sales')}>
               <Plus className="mr-2 h-4 w-4" />
               Record New Sale
             </Button>

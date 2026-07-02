@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
+import dayjs from 'dayjs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,75 +19,26 @@ import { API_CONFIG } from '@/lib/api-config';
 
 const API_BASE = API_CONFIG.BASE_URL;
 
+function formatMinsAsHours(mins?: number) {
+  if (!mins || mins <= 0) return '0h';
+  const h = Math.floor(mins / 60);
+  const m = Math.round(mins % 60);
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
 export function EmployeeDashboard() {
   const { user } = useAuth();
 
   const orgId = localStorage.getItem('organizationId') || '';
   const empId = localStorage.getItem('empId') || '';
 
-  const todayStats = [
-    {
-      title: 'Shift Status',
-      value: 'Active',
-      change: 'Started 08:00 AM',
-      icon: Clock,
-      color: 'text-success',
-      bgColor: 'bg-success-soft',
-    },
-    {
-      title: 'Hours Today',
-      value: '6.5h',
-      change: '1.5h remaining',
-      icon: Timer,
-      color: 'text-primary',
-      bgColor: 'bg-primary-soft',
-    },
-    {
-      title: 'This Month',
-      value: '162h',
-      change: 'Target: 180h',
-      icon: Calendar,
-      color: 'text-accent',
-      bgColor: 'bg-accent-soft',
-    },
-    {
-      title: 'Performance',
-      value: '92%',
-      change: 'Above average',
-      icon: TrendingUp,
-      color: 'text-success',
-      bgColor: 'bg-success-soft',
-    },
-  ];
-
-  const recentShifts = [
-    { date: '2024-01-08', shift: 'Morning', hours: '8h', status: 'completed' },
-    { date: '2024-01-07', shift: 'Morning', hours: '8h', status: 'completed' },
-    { date: '2024-01-06', shift: 'Afternoon', hours: '8h', status: 'completed' },
-    { date: '2024-01-05', shift: 'Morning', hours: '7.5h', status: 'completed' },
-  ];
-
-  const upcomingShifts = [
-    { date: '2024-01-09', shift: 'Morning', time: '08:00 AM - 04:00 PM' },
-    { date: '2024-01-10', shift: 'Morning', time: '08:00 AM - 04:00 PM' },
-    { date: '2024-01-11', shift: 'Afternoon', time: '02:00 PM - 10:00 PM' },
-    { date: '2024-01-12', shift: 'Morning', time: '08:00 AM - 04:00 PM' },
-  ];
-
-  const salaryInfo = {
-    currentMonth: {
-      basic: 25000,
-      overtime: 3500,
-      incentives: 2000,
-      deductions: 1200,
-      net: 29300,
-    },
-    lastPaid: '2023-12-31',
-    nextPayday: '2024-01-31',
-  };
-
   const [todayTasks, setTodayTasks] = useState<any[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
+
+  const [employeeRecord, setEmployeeRecord] = useState<any>(null);
+  const [attendanceRecords, setAttendanceRecords] = useState<any[]>([]);
+  const [upcomingDuties, setUpcomingDuties] = useState<any[]>([]);
+  const [loadingStats, setLoadingStats] = useState(true);
 
   useEffect(() => {
     if (!orgId || !empId) return;
@@ -105,6 +57,86 @@ export function EmployeeDashboard() {
       .finally(() => setLoadingTasks(false));
   }, [orgId, empId]);
 
+  useEffect(() => {
+    if (!orgId || !empId) return;
+    setLoadingStats(true);
+    Promise.all([
+      axios.get(`${API_BASE}/api/organizations/${orgId}/employees?page=0&size=500`),
+      axios.get(`${API_BASE}/api/organizations/${orgId}/attendance/employee/${empId}`).catch(() => ({ data: [] })),
+      axios.get(`${API_BASE}/api/organizations/${orgId}/employee-duties/employee/${empId}`).catch(() => ({ data: [] })),
+    ])
+      .then(([empRes, attRes, dutyRes]) => {
+        const empList = Array.isArray(empRes.data?.content) ? empRes.data.content : Array.isArray(empRes.data) ? empRes.data : [];
+        setEmployeeRecord(empList.find((e: any) => e.empId === empId) || null);
+
+        const attList = Array.isArray(attRes.data) ? attRes.data : [];
+        attList.sort((a: any, b: any) => new Date(b.checkIn || b.createdAt || 0).getTime() - new Date(a.checkIn || a.createdAt || 0).getTime());
+        setAttendanceRecords(attList);
+
+        const dutyList = Array.isArray(dutyRes.data) ? dutyRes.data : [];
+        const today = dayjs().startOf('day');
+        const upcoming = dutyList
+          .filter((d: any) => d.status === 'SCHEDULED' && d.dutyDate && !dayjs(d.dutyDate).isBefore(today))
+          .sort((a: any, b: any) => new Date(a.dutyDate).getTime() - new Date(b.dutyDate).getTime())
+          .slice(0, 4);
+        setUpcomingDuties(upcoming);
+      })
+      .finally(() => setLoadingStats(false));
+  }, [orgId, empId]);
+
+  const todayAttendance = attendanceRecords.find((a: any) => dayjs(a.checkIn || a.createdAt).isSame(dayjs(), 'day'));
+  const latestAttendance = attendanceRecords[0];
+
+  const todayStats = [
+    {
+      title: 'Shift Status',
+      value: todayAttendance?.present === 'YES' ? 'Checked In' : 'Not Checked In',
+      change: todayAttendance?.checkIn ? `Started ${dayjs(todayAttendance.checkIn).format('hh:mm A')}` : 'No check-in today',
+      icon: Clock,
+      color: 'text-success',
+      bgColor: 'bg-success-soft',
+    },
+    {
+      title: 'Hours Today',
+      value: formatMinsAsHours(todayAttendance?.workingMins),
+      change: todayAttendance?.shortTimeMins
+        ? `${formatMinsAsHours(todayAttendance.shortTimeMins)} short`
+        : todayAttendance?.extraHoursMins
+        ? `${formatMinsAsHours(todayAttendance.extraHoursMins)} extra`
+        : 'On duty target',
+      icon: Timer,
+      color: 'text-primary',
+      bgColor: 'bg-primary-soft',
+    },
+    {
+      title: 'Attendance Rate',
+      value: latestAttendance?.attendanceRate !== undefined ? `${Math.round(latestAttendance.attendanceRate)}%` : '—',
+      change: 'This month',
+      icon: Calendar,
+      color: 'text-accent',
+      bgColor: 'bg-accent-soft',
+    },
+    {
+      title: 'Avg Hours/Day',
+      value: latestAttendance?.avgHours !== undefined ? `${latestAttendance.avgHours.toFixed(1)}h` : '—',
+      change: 'This month',
+      icon: TrendingUp,
+      color: 'text-success',
+      bgColor: 'bg-success-soft',
+    },
+  ];
+
+  const recentShifts = attendanceRecords.slice(0, 4).map((a: any) => ({
+    date: a.checkIn ? dayjs(a.checkIn).format('DD MMM YYYY') : dayjs(a.createdAt).format('DD MMM YYYY'),
+    hours: formatMinsAsHours(a.workingMins),
+    status: a.present === 'YES' ? 'completed' : 'absent',
+  }));
+
+  const upcomingShifts = upcomingDuties.map((d: any) => ({
+    date: dayjs(d.dutyDate).format('DD MMM YYYY'),
+    time: d.shiftStart && d.shiftEnd ? `${d.shiftStart} - ${d.shiftEnd}` : 'Not set',
+  }));
+
   const handleTaskAction = async (taskId: string, newStatus: string) => {
     await axios.put(`${API_BASE}/api/organizations/${orgId}/tasks/${taskId}/status?status=${encodeURIComponent(newStatus)}`);
     setTodayTasks(ts => ts.map(t => (t.id === taskId ? { ...t, status: newStatus } : t)));
@@ -119,9 +151,9 @@ export function EmployeeDashboard() {
 
   const getShiftStatusBadge = (status: string) => {
     return status === 'completed' ? (
-      <Badge className="bg-success-soft text-success">Completed</Badge>
+      <Badge className="bg-success-soft text-success">Present</Badge>
     ) : (
-      <Badge className="bg-warning-soft text-warning">Pending</Badge>
+      <Badge className="bg-destructive-soft text-destructive">Absent</Badge>
     );
   };
 
@@ -253,46 +285,54 @@ export function EmployeeDashboard() {
           </CardContent>
         </Card>
 
-        {/* Salary Information */}
+        {/* Employment Details */}
         <Card className="card-gradient">
           <CardHeader className="p-4 sm:p-6">
             <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
               <DollarSign className="h-5 w-5" />
-              Salary Information
+              Employment Details
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 p-4 sm:p-6">
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Basic Salary</span>
-                <span className="font-medium">₹{salaryInfo.currentMonth.basic.toLocaleString()}</span>
+            {loadingStats ? (
+              <div className="text-muted-foreground text-sm">Loading...</div>
+            ) : !employeeRecord ? (
+              <div className="text-muted-foreground text-sm">No employee record found</div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Monthly Salary</span>
+                  <span className="font-medium text-primary">
+                    {employeeRecord.salary !== undefined && employeeRecord.salary !== null
+                      ? `₹${Number(employeeRecord.salary).toLocaleString()}`
+                      : 'Not set'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Department</span>
+                  <span className="font-medium">{employeeRecord.department || '—'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Role</span>
+                  <span className="font-medium">{employeeRecord.role || '—'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Shift Timing</span>
+                  <span className="font-medium">
+                    {employeeRecord.shiftTiming?.start && employeeRecord.shiftTiming?.end
+                      ? `${employeeRecord.shiftTiming.start} - ${employeeRecord.shiftTiming.end}`
+                      : 'Not set'}
+                  </span>
+                </div>
+                <hr className="my-2" />
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Joined</span>
+                  <span className="font-medium">
+                    {employeeRecord.joinedDate ? dayjs(employeeRecord.joinedDate).format('DD MMM YYYY') : '—'}
+                  </span>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Overtime</span>
-                <span className="font-medium text-success">₹{salaryInfo.currentMonth.overtime.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Incentives</span>
-                <span className="font-medium text-accent">₹{salaryInfo.currentMonth.incentives.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Deductions</span>
-                <span className="font-medium text-destructive">₹{salaryInfo.currentMonth.deductions.toLocaleString()}</span>
-              </div>
-              <hr className="my-2" />
-              <div className="flex justify-between text-lg font-semibold">
-                <span>Net Salary</span>
-                <span className="text-primary">₹{salaryInfo.currentMonth.net.toLocaleString()}</span>
-              </div>
-            </div>
-            <div className="pt-4 space-y-2">
-              <p className="text-sm text-muted-foreground">
-                Last paid: {salaryInfo.lastPaid}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Next payday: {salaryInfo.nextPayday}
-              </p>
-            </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -307,11 +347,14 @@ export function EmployeeDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 p-4 sm:p-6">
+            {loadingStats && <div className="text-muted-foreground text-sm">Loading...</div>}
+            {!loadingStats && recentShifts.length === 0 && (
+              <div className="text-muted-foreground text-sm">No attendance records yet</div>
+            )}
             {recentShifts.map((shift, index) => (
               <div key={index} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-lg bg-muted/30">
                 <div className="space-y-0.5">
                   <p className="font-medium text-foreground">{shift.date}</p>
-                  <p className="text-sm text-muted-foreground">{shift.shift} Shift</p>
                 </div>
                 <div className="text-left sm:text-right space-y-1">
                   <p className="font-semibold text-foreground">{shift.hours}</p>
@@ -319,7 +362,7 @@ export function EmployeeDashboard() {
                 </div>
               </div>
             ))}
-            <Button variant="outline" className="w-full">
+            <Button variant="outline" className="w-full" onClick={() => (window.location.href = '/employee-attendance')}>
               <FileText className="mr-2 h-4 w-4" />
               View All Shifts
             </Button>
@@ -335,11 +378,14 @@ export function EmployeeDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 p-4 sm:p-6">
+            {loadingStats && <div className="text-muted-foreground text-sm">Loading...</div>}
+            {!loadingStats && upcomingShifts.length === 0 && (
+              <div className="text-muted-foreground text-sm">No upcoming duties scheduled</div>
+            )}
             {upcomingShifts.map((shift, index) => (
               <div key={index} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-lg bg-muted/30">
                 <div className="space-y-0.5">
                   <p className="font-medium text-foreground">{shift.date}</p>
-                  <p className="text-sm text-muted-foreground">{shift.shift} Shift</p>
                 </div>
                 <div className="text-left sm:text-right">
                   <p className="font-medium text-foreground">{shift.time}</p>

@@ -1,16 +1,19 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import axios from 'axios';
+import dayjs from 'dayjs';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Users, Fuel, CreditCard, TrendingUp, DollarSign, AlertTriangle, BarChart3, Eye, RotateCcw,
-  Activity, Droplets, Package
+  Activity, Droplets, Package, Wallet, Landmark, Clock3
 } from 'lucide-react';
 import { API_CONFIG } from '@/lib/api-config';
 
 const API_BASE = API_CONFIG.BASE_URL;
+
+const isSameDay = (dateStr: any, day: dayjs.Dayjs) => dateStr && dayjs(dateStr).isSame(day, 'day');
 
 const safeArray = (v: any) =>
   Array.isArray(v) ? v :
@@ -51,28 +54,33 @@ export function OwnerDashboard() {
   const [sales, setSales] = useState<any[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
   const [inventory, setInventory] = useState<any[]>([]);
-  const [loading, setLoading] = useState({ 
-    employees: true, 
-    tanks: true, 
+  const [collections, setCollections] = useState<any[]>([]);
+  const [bankDeposits, setBankDeposits] = useState<any[]>([]);
+  const [loading, setLoading] = useState({
+    employees: true,
+    tanks: true,
     borrowers: true,
     sales: true,
     expenses: true,
-    inventory: true
+    inventory: true,
+    cash: true,
   });
-  const [error, setError] = useState<{ 
-    employees: string | null; 
-    tanks: string | null; 
+  const [error, setError] = useState<{
+    employees: string | null;
+    tanks: string | null;
     borrowers: string | null;
     sales: string | null;
     expenses: string | null;
     inventory: string | null;
+    cash: string | null;
   }>({
-    employees: null, 
-    tanks: null, 
+    employees: null,
+    tanks: null,
     borrowers: null,
     sales: null,
     expenses: null,
-    inventory: null
+    inventory: null,
+    cash: null,
   });
 
   useEffect(() => {
@@ -80,6 +88,7 @@ export function OwnerDashboard() {
   }, []);
 
   const fetchAll = useCallback(() => {
+    const resetKeys = { employees: true, tanks: true, borrowers: true, sales: true, expenses: true, inventory: true, cash: true };
     if (!orgId) {
       setError({
         employees: "No Organization ID",
@@ -88,32 +97,34 @@ export function OwnerDashboard() {
         sales: "No Organization ID",
         expenses: "No Organization ID",
         inventory: "No Organization ID",
+        cash: "No Organization ID",
       });
-      setLoading({ employees: false, tanks: false, borrowers: false, sales: false, expenses: false, inventory: false });
+      setLoading({ employees: false, tanks: false, borrowers: false, sales: false, expenses: false, inventory: false, cash: false });
       return;
     }
-    setLoading({ employees: true, tanks: true, borrowers: true, sales: true, expenses: true, inventory: true });
-    setError({ employees: null, tanks: null, borrowers: null, sales: null, expenses: null, inventory: null });
-    
-    // Get today's date in YYYY-MM-DD format for sales filter
-    const today = new Date().toISOString().split('T')[0];
-    
+    setLoading(resetKeys);
+    setError({ employees: null, tanks: null, borrowers: null, sales: null, expenses: null, inventory: null, cash: null });
+
     Promise.all([
-      axios.get(`${API_BASE}/api/organizations/${orgId}/employees`),
+      axios.get(`${API_BASE}/api/organizations/${orgId}/employees?page=0&size=500`),
       axios.get(`${API_BASE}/api/organizations/${orgId}/products`),
-      axios.get(`${API_BASE}/api/organizations/${orgId}/customers`),
+      axios.get(`${API_BASE}/api/organizations/${orgId}/customers?page=0&size=500`),
       axios.get(`${API_BASE}/api/organizations/${orgId}/sales`).catch(() => ({ data: [] })),
       axios.get(`${API_BASE}/api/organizations/${orgId}/expenses`).catch(() => ({ data: [] })),
       axios.get(`${API_BASE}/api/organizations/${orgId}/inventories`).catch(() => ({ data: [] })),
+      axios.get(`${API_BASE}/api/organizations/${orgId}/collections`).catch(() => ({ data: [] })),
+      axios.get(`${API_BASE}/api/organizations/${orgId}/bank-deposits?page=0&size=1000`).catch(() => ({ data: [] })),
     ])
-      .then(([empRes, tankRes, borrowRes, salesRes, expensesRes, inventoryRes]) => {
+      .then(([empRes, tankRes, borrowRes, salesRes, expensesRes, inventoryRes, collectionsRes, depositsRes]) => {
         setEmployees(safeArray(empRes.data));
         setTanks(safeArray(tankRes.data));
         setBorrowers(safeArray(borrowRes.data));
         setSales(safeArray(salesRes.data));
         setExpenses(safeArray(expensesRes.data));
         setInventory(safeArray(inventoryRes.data));
-        setLoading({ employees: false, tanks: false, borrowers: false, sales: false, expenses: false, inventory: false });
+        setCollections(safeArray(collectionsRes.data));
+        setBankDeposits(safeArray(depositsRes.data));
+        setLoading({ employees: false, tanks: false, borrowers: false, sales: false, expenses: false, inventory: false, cash: false });
       })
       .catch(err => {
         const errMsg = err?.message || 'Error loading data.';
@@ -124,8 +135,9 @@ export function OwnerDashboard() {
           sales: errMsg,
           expenses: errMsg,
           inventory: errMsg,
+          cash: errMsg,
         });
-        setLoading({ employees: false, tanks: false, borrowers: false, sales: false, expenses: false, inventory: false });
+        setLoading({ employees: false, tanks: false, borrowers: false, sales: false, expenses: false, inventory: false, cash: false });
       });
   }, [orgId]);
 
@@ -135,15 +147,15 @@ export function OwnerDashboard() {
 
   const stats = useMemo(() => {
     // Today's sales calculation
-    const today = new Date().toISOString().split('T')[0];
-    const todaySales = sales.filter((s: any) => s.saleDate?.startsWith(today) || s.date?.startsWith(today));
+    const today = dayjs();
+    const todaySales = sales.filter((s: any) => isSameDay(s.dateTime, today));
     const todayRevenue = todaySales.reduce((sum, s) => {
-      const amount = Number(s.totalAmount) || Number(s.amount) || 0;
+      const amount = Number(s.salesInRupees) || 0;
       return sum + (isNaN(amount) ? 0 : amount);
     }, 0);
-    
+
     // Today's expenses
-    const todayExpenses = expenses.filter((e: any) => e.expenseDate?.startsWith(today) || e.date?.startsWith(today));
+    const todayExpenses = expenses.filter((e: any) => isSameDay(e.expenseDate, today));
     const todayExpenseTotal = todayExpenses.reduce((sum, e) => {
       const amount = Number(e.amount) || 0;
       return sum + (isNaN(amount) ? 0 : amount);
@@ -220,7 +232,7 @@ export function OwnerDashboard() {
     name: tank.productName,
     capacity: Number(tank.tankCapacity) || 0,
     current: Number(tank.currentLevel) || 0,
-    lastRefill: tank.lastUpdated ? new Date(tank.lastUpdated).toLocaleDateString('en-IN') : '',
+    lastRefill: tank.updatedAt ? new Date(tank.updatedAt).toLocaleDateString('en-IN') : '',
     sales: 0
   })), [tanks]);
 
@@ -229,7 +241,7 @@ export function OwnerDashboard() {
     name: borrower.customerName,
     amount: Number(borrower.amountBorrowed) || 0,
     lastPayment: borrower.borrowDate || '',
-    status: borrower.status === 'overdue' ? 'overdue' : 'current',
+    status: String(borrower.status || '').toUpperCase() === 'OVERDUE' ? 'overdue' : 'current',
   })), [borrowers]);
 
   const financialSummary = useMemo(() => {
@@ -245,38 +257,34 @@ export function OwnerDashboard() {
     );
     
     // Today's date for filtering
-    const today = new Date().toISOString().split('T')[0];
-    
+    const today = dayjs();
+
     // Today's sales revenue with safety checks
-    const todaySales = sales.filter((s: any) => 
-      s.saleDate?.startsWith(today) || s.date?.startsWith(today)
-    );
+    const todaySales = sales.filter((s: any) => isSameDay(s.dateTime, today));
     const todayRevenue = todaySales.reduce((sum, s) => {
-      const amount = Number(s.totalAmount) || Number(s.amount) || 0;
+      const amount = Number(s.salesInRupees) || 0;
       return sum + (isNaN(amount) ? 0 : amount);
     }, 0);
-    
+
     // Today's expenses with safety checks
-    const todayExpenses = expenses.filter((e: any) => 
-      e.expenseDate?.startsWith(today) || e.date?.startsWith(today)
-    );
+    const todayExpenses = expenses.filter((e: any) => isSameDay(e.expenseDate, today));
     const todayExpenseTotal = todayExpenses.reduce((sum, e) => {
       const amount = Number(e.amount) || 0;
       return sum + (isNaN(amount) ? 0 : amount);
     }, 0);
-    
+
     // Total outstanding credit with safety checks
     const totalOutstanding = safeArray(borrowers).reduce(
       (sum: number, b: any) => {
         const amount = Number(b.amountBorrowed) || 0;
         return sum + (isNaN(amount) ? 0 : amount);
-      }, 
+      },
       0
     );
-    
+
     // Net position (today's profit)
     const netPosition = todayRevenue - todayExpenseTotal;
-    
+
     return {
       totalStockValue,
       todayRevenue,
@@ -285,6 +293,23 @@ export function OwnerDashboard() {
       netPosition,
     };
   }, [tanks, borrowers, sales, expenses]);
+
+  // Cash position: how much has actually been collected vs. deposited to the bank vs.
+  // still owed by borrowers. CMS (bank cash-pickup service) isn't wired up yet.
+  const cashBreakdown = useMemo(() => {
+    const totalCashCollected = safeArray(collections).reduce(
+      (sum: number, c: any) => sum + (Number(c.cashReceived) || 0), 0
+    );
+    const accountCash = safeArray(bankDeposits).reduce(
+      (sum: number, d: any) => sum + (Number(d.amount) || 0), 0
+    );
+    const handCash = Math.max(0, totalCashCollected - accountCash);
+    const borrowersCash = safeArray(borrowers).reduce(
+      (sum: number, b: any) => sum + (Number(b.amountBorrowed) || 0), 0
+    );
+    const total = accountCash + handCash + borrowersCash;
+    return { accountCash, handCash, borrowersCash, total };
+  }, [collections, bankDeposits, borrowers]);
 
   const getStockPercentage = (current: number, capacity: number) =>
     capacity ? Math.round((current / capacity) * 100) : 0;
@@ -594,6 +619,72 @@ export function OwnerDashboard() {
               <p className="text-[10px] text-muted-foreground">
                 {financialSummary.netPosition >= 0 ? 'Net Profit' : 'Net Loss'}
               </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Cash Position */}
+      <Card className="border-border/50 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden opacity-0 animate-slide-up stagger-4">
+        <CardHeader className="border-b border-border/50 bg-muted/30">
+          <CardTitle className="flex items-center gap-2 text-xl">
+            <div className="p-2 rounded-lg bg-emerald-500/10">
+              <Wallet className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            Cash Position
+            {loading.cash && <span className="ml-auto text-xs text-muted-foreground">Loading...</span>}
+          </CardTitle>
+        </CardHeader>
+
+        <CardContent className="p-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            <div className="text-center space-y-1">
+              <div className="flex items-center justify-center gap-1.5">
+                <Landmark className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                <p className="text-xs text-muted-foreground font-medium">Account Cash</p>
+              </div>
+              <p className="text-base font-bold text-blue-600 dark:text-blue-400">
+                {loading.cash ? '...' : formatIndianCurrency(cashBreakdown.accountCash)}
+              </p>
+              <p className="text-[10px] text-muted-foreground">Deposited to bank</p>
+            </div>
+            <div className="text-center space-y-1">
+              <div className="flex items-center justify-center gap-1.5">
+                <Wallet className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+                <p className="text-xs text-muted-foreground font-medium">Hand Cash</p>
+              </div>
+              <p className="text-base font-bold text-green-600 dark:text-green-400">
+                {loading.cash ? '...' : formatIndianCurrency(cashBreakdown.handCash)}
+              </p>
+              <p className="text-[10px] text-muted-foreground">Collected, not yet deposited</p>
+            </div>
+            <div className="text-center space-y-1">
+              <div className="flex items-center justify-center gap-1.5">
+                <Clock3 className="h-3.5 w-3.5 text-muted-foreground" />
+                <p className="text-xs text-muted-foreground font-medium">CMS Cash</p>
+              </div>
+              <p className="text-base font-bold text-muted-foreground">Coming Soon</p>
+              <p className="text-[10px] text-muted-foreground">Not yet integrated</p>
+            </div>
+            <div className="text-center space-y-1">
+              <div className="flex items-center justify-center gap-1.5">
+                <AlertTriangle className="h-3.5 w-3.5 text-yellow-600 dark:text-yellow-400" />
+                <p className="text-xs text-muted-foreground font-medium">Borrowers Cash</p>
+              </div>
+              <p className="text-base font-bold text-yellow-600 dark:text-yellow-400">
+                {loading.cash ? '...' : formatIndianCurrency(cashBreakdown.borrowersCash)}
+              </p>
+              <p className="text-[10px] text-muted-foreground">Owed by customers</p>
+            </div>
+            <div className="text-center space-y-1">
+              <div className="flex items-center justify-center gap-1.5">
+                <DollarSign className="h-3.5 w-3.5 text-primary" />
+                <p className="text-xs text-muted-foreground font-medium">Total</p>
+              </div>
+              <p className="text-base font-bold text-primary">
+                {loading.cash ? '...' : formatIndianCurrency(cashBreakdown.total)}
+              </p>
+              <p className="text-[10px] text-muted-foreground">Account + Hand + Borrowers</p>
             </div>
           </div>
         </CardContent>

@@ -382,16 +382,11 @@ export default function Borrowers() {
 
   const stats = useMemo(() => {
     const total = customers.length;
-    const totalBorrowed = customers.reduce((sum, c) => sum + (Number(c.amountBorrowed) || 0), 0);
-    const overdueCount = customers.filter((c) => (c.status || '').toUpperCase() === 'OVERDUE').length;
-    const pendingCount = customers.filter((c) => (c.status || '').toUpperCase() === 'PENDING').length;
-    const partialCount = customers.filter((c) => (c.status || '').toUpperCase() === 'PARTIAL').length;
-    const paidCount = customers.filter((c) => (c.status || '').toUpperCase() === 'PAID').length;
-    
+
     // Calculate total amount borrowed and recovered from history
     let historyTotalBorrowed = 0;
     let historyTotalRecovered = 0;
-    
+
     allHistory.forEach((transaction) => {
       const amount = Number(transaction.transactionAmount) || 0;
       if (amount < 0) {
@@ -402,17 +397,14 @@ export default function Borrowers() {
         historyTotalRecovered += amount;
       }
     });
-    
-    const pendingAmount = historyTotalBorrowed - historyTotalRecovered;
-    
+
+    const pendingAmount = Math.max(0, historyTotalBorrowed - historyTotalRecovered);
+
     return [
       { title: 'Total Borrowers', value: total.toString(), change: 'Active records', icon: Users, color: 'text-primary', bgColor: 'bg-primary-soft' },
-      { title: 'Total Borrowed', value: `₹${totalBorrowed.toLocaleString()}`, change: 'Current outstanding', icon: IndianRupee, color: 'text-accent', bgColor: 'bg-accent-soft' },
-      { title: 'Amount Borrowed', value: `₹${historyTotalBorrowed.toLocaleString()}`, change: 'From history', icon: TrendingDown, color: 'text-orange-600', bgColor: 'bg-orange-50' },
-      { title: 'Amount Recovered', value: `₹${historyTotalRecovered.toLocaleString()}`, change: 'From history', icon: TrendingUp, color: 'text-green-600', bgColor: 'bg-green-50' },
-      { title: 'Pending Amount', value: `₹${pendingAmount.toLocaleString()}`, change: 'Borrowed - Recovered', icon: CreditCard, color: 'text-purple-600', bgColor: 'bg-purple-50' },
-      { title: 'Overdue', value: overdueCount.toString(), change: 'Need attention', icon: AlertTriangle, color: 'text-destructive', bgColor: 'bg-destructive/10' },
-      { title: 'P/P/P', value: `${pendingCount}/${partialCount}/${paidCount}`, change: 'Pending/Partial/Paid', icon: Clock, color: 'text-blue-600', bgColor: 'bg-blue-50' }
+      { title: 'Total Amount Borrowed', value: `₹${historyTotalBorrowed.toLocaleString()}`, change: 'From history', icon: TrendingDown, color: 'text-orange-600', bgColor: 'bg-orange-50' },
+      { title: 'Total Amount Received', value: `₹${historyTotalRecovered.toLocaleString()}`, change: 'From history', icon: TrendingUp, color: 'text-green-600', bgColor: 'bg-green-50' },
+      { title: 'Pending (Not Collected)', value: `₹${pendingAmount.toLocaleString()}`, change: 'Borrowed - Received', icon: IndianRupee, color: 'text-destructive', bgColor: 'bg-destructive/10' },
     ];
   }, [customers, allHistory]);
 
@@ -1145,18 +1137,18 @@ export default function Borrowers() {
       {!isLoading && !isError && (
         <>
           {/* ========== STATS CARDS ========== */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {stats.map((stat) => {
               const Icon = stat.icon;
               return (
                 <Card key={stat.title} className="stat-card hover-lift">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-muted-foreground truncate">{stat.title}</p>
-                        <div><p className="text-2xl font-bold text-foreground">{stat.value}</p><p className="text-xs text-muted-foreground">{stat.change}</p></div>
+                        <p className="text-xs font-medium text-muted-foreground">{stat.title}</p>
+                        <div><p className="text-xl font-bold text-foreground mt-0.5">{stat.value}</p><p className="text-[11px] text-muted-foreground mt-0.5">{stat.change}</p></div>
                       </div>
-                      <div className={`${stat.bgColor} p-3 rounded-lg`}><Icon className={`h-6 w-6 ${stat.color}`} /></div>
+                      <div className={`${stat.bgColor} p-2.5 rounded-lg shrink-0`}><Icon className={`h-5 w-5 ${stat.color}`} /></div>
                     </div>
                   </CardContent>
                 </Card>

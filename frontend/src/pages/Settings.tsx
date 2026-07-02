@@ -52,6 +52,9 @@ type OrganizationResponse = {
   licenseNumber?: string;
   ownerFirstName?: string;
   ownerLastName?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankIfscCode?: string;
 };
 
 type OrgForm = {
@@ -68,6 +71,9 @@ type OrgForm = {
   licenseNumber: string;
   ownerFirstName: string;
   ownerLastName: string;
+  bankName: string;
+  bankAccountNumber: string;
+  bankIfscCode: string;
 };
 
 type Product = {
@@ -149,6 +155,9 @@ export default function Settings() {
     licenseNumber: "",
     ownerFirstName: "",
     ownerLastName: "",
+    bankName: "",
+    bankAccountNumber: "",
+    bankIfscCode: "",
   });
 
   const [fuelPrices, setFuelPrices] = useState<FuelPriceRow[]>([]);
@@ -181,6 +190,9 @@ export default function Settings() {
       licenseNumber: org.licenseNumber ?? "",
       ownerFirstName: org.ownerFirstName ?? "",
       ownerLastName: org.ownerLastName ?? "",
+      bankName: org.bankName ?? "",
+      bankAccountNumber: org.bankAccountNumber ?? "",
+      bankIfscCode: org.bankIfscCode ?? "",
     });
   }, [org]);
 
@@ -376,6 +388,9 @@ export default function Settings() {
                                   licenseNumber: org.licenseNumber ?? "",
                                   ownerFirstName: org.ownerFirstName ?? "",
                                   ownerLastName: org.ownerLastName ?? "",
+                                  bankName: org.bankName ?? "",
+                                  bankAccountNumber: org.bankAccountNumber ?? "",
+                                  bankIfscCode: org.bankIfscCode ?? "",
                                 });
                               setEditMode(false);
                             }}
@@ -538,6 +553,45 @@ export default function Settings() {
                             onChange={(e) => setForm((s) => ({ ...s, ownerLastName: e.target.value }))}
                             disabled={!editMode}
                           />
+                        </div>
+                      </div>
+
+                      <Separator />
+
+                      <div>
+                        <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
+                          <CreditCard className="h-4 w-4 text-blue-600" />
+                          Bank Details
+                        </h3>
+                        <p className="text-xs text-muted-foreground -mt-2 mb-3">
+                          Used to auto-fill bank name and account number when recording bank deposits.
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+                          <div className="space-y-1.5">
+                            <Label>Bank Name</Label>
+                            <Input
+                              value={form.bankName}
+                              onChange={(e) => setForm((s) => ({ ...s, bankName: e.target.value }))}
+                              disabled={!editMode}
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label>Bank Account Number</Label>
+                            <Input
+                              value={form.bankAccountNumber}
+                              onChange={(e) => setForm((s) => ({ ...s, bankAccountNumber: e.target.value }))}
+                              disabled={!editMode}
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label>IFSC Code</Label>
+                            <Input
+                              value={form.bankIfscCode}
+                              onChange={(e) => setForm((s) => ({ ...s, bankIfscCode: e.target.value.toUpperCase() }))}
+                              disabled={!editMode}
+                              placeholder="e.g. SBIN0001234"
+                            />
+                          </div>
                         </div>
                       </div>
                     </CardContent>

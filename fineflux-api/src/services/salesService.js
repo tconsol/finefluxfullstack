@@ -27,6 +27,7 @@ async function getSalesByDateRange(orgId, from, to) {
 async function createSale(orgId, dto) {
   const { empId, productName, openingStock: dtoOpeningStock, closingStock, testingTotal = 0, price, guns } = dto;
   const dateTime = dto.dateTime ? new Date(dto.dateTime) : nowIst().toDate();
+  const saleEndTime = dto.saleEndTime ? new Date(dto.saleEndTime) : undefined;
 
   const productNameTrimmed = (productName || '').trim();
   const product = await Product.findOne({
@@ -52,6 +53,7 @@ async function createSale(orgId, dto) {
     saleId,
     organizationId: orgId,
     dateTime,
+    saleEndTime,
     productName: productNameTrimmed,
     guns,
     empId,
@@ -124,6 +126,8 @@ async function deleteSale(orgId, saleMongoId, employeeId) {
       organizationId: orgId,
       saleId: sale.saleId,
       dateTime: sale.dateTime,
+      saleEndTime: sale.saleEndTime,
+      saleCreatedAt: sale.createdAt,
       productName: sale.productName,
       guns: sale.guns,
       empId: sale.empId,

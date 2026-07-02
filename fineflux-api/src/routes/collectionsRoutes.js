@@ -3,6 +3,7 @@ const router = express.Router({ mergeParams: true });
 const ctrl = require('../controllers/collectionsController');
 
 router.get('/', ctrl.getAll);
+router.get('/by-date', ctrl.getByDateRange);
 router.get('/by-sale/:saleId', ctrl.getBySaleId);
 router.post('/', ctrl.create);
 router.put('/:id', ctrl.update);

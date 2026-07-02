@@ -34,10 +34,13 @@ const EMPTY_FORM = {
   supplier: '',
   currentLevel: '',
   metric: 'Liters',
+  mlPerPacket: '',
   status: 'true',
   lastUpdated: '',
   empId: ''
 };
+
+const isPacketProduct = (productName: string) => productName === '2T';
 
 function formatDateTime(val?: string) {
   if (!val) return '—';
@@ -100,6 +103,7 @@ export default function Products() {
         price: body.price ? Number(body.price) : undefined,
         tankCapacity: body.tankCapacity ? Number(body.tankCapacity) : undefined,
         currentLevel: body.currentLevel ? Number(body.currentLevel) : undefined,
+        mlPerPacket: isPacketProduct(body.productName) && body.mlPerPacket ? Number(body.mlPerPacket) : undefined,
         status: body.status === "true",
         lastUpdated: new Date().toISOString(),
         empId
@@ -134,6 +138,7 @@ export default function Products() {
         price: body.price ? Number(body.price) : undefined,
         tankCapacity: body.tankCapacity ? Number(body.tankCapacity) : undefined,
         currentLevel: body.currentLevel ? Number(body.currentLevel) : undefined,
+        mlPerPacket: isPacketProduct(body.productName) && body.mlPerPacket ? Number(body.mlPerPacket) : undefined,
         status: body.status === "true",
         lastUpdated: new Date().toISOString()
       };
@@ -228,6 +233,7 @@ export default function Products() {
       supplier: prod.supplier ?? '',
       currentLevel: prod.currentLevel !== undefined && prod.currentLevel !== null ? String(prod.currentLevel) : '',
       metric: prod.metric ?? 'Liters',
+      mlPerPacket: prod.mlPerPacket !== undefined && prod.mlPerPacket !== null ? String(prod.mlPerPacket) : '',
       status: prod.status ? "true" : "false",
       lastUpdated: prod.lastUpdated || '',
       empId: prod.empId || empId
@@ -378,7 +384,7 @@ export default function Products() {
                   <TableHeader>
                     <TableRow className="bg-muted/50">
                       <TableHead className="font-semibold text-xs">Product</TableHead>
-                      <TableHead className="font-semibold text-xs">Price/L</TableHead>
+                      <TableHead className="font-semibold text-xs">Price</TableHead>
                       <TableHead className="font-semibold text-xs">Supplier</TableHead>
                       <TableHead className="font-semibold text-xs">Tank Capacity</TableHead>
                       <TableHead className="font-semibold text-xs">Current Level</TableHead>
@@ -395,7 +401,12 @@ export default function Products() {
                           <TableCell className="text-xs font-medium">{prod.productName}</TableCell>
                           <TableCell className="text-xs font-bold text-primary">{RUPEE}{(prod.price || 0).toFixed(2)}</TableCell>
                           <TableCell className="text-xs">{prod.supplier || '—'}</TableCell>
-                          <TableCell className="text-xs">{prod.tankCapacity?.toLocaleString('en-IN') || '—'} {prod.metric || 'L'}</TableCell>
+                          <TableCell className="text-xs">
+                            {prod.tankCapacity?.toLocaleString('en-IN') || '—'} {prod.metric || 'L'}
+                            {prod.metric === 'Packets' && prod.mlPerPacket ? (
+                              <span className="block text-[10px] text-muted-foreground">{prod.mlPerPacket}ml each</span>
+                            ) : null}
+                          </TableCell>
                           <TableCell className="text-xs">
                             <div className="flex items-center gap-2">
                               <span>{(prod.currentLevel || 0).toLocaleString('en-IN')} {prod.metric || 'L'}</span>
@@ -470,6 +481,7 @@ export default function Products() {
                             <span className="text-muted-foreground">Capacity:</span>
                             <span className="font-medium">
                               {prod.tankCapacity?.toLocaleString('en-IN') || '—'} {prod.metric || 'L'}
+                              {prod.metric === 'Packets' && prod.mlPerPacket ? ` (${prod.mlPerPacket}ml each)` : ''}
                             </span>
                           </div>
                           <div className="flex items-center gap-1.5">
@@ -504,7 +516,7 @@ export default function Products() {
                           <div className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
                             {RUPEE}{(prod.price || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </div>
-                          <div className="text-xs text-muted-foreground">per Liter</div>
+                          <div className="text-xs text-muted-foreground">per {prod.metric === 'Packets' ? 'Packet' : 'Liter'}</div>
                         </div>
                         <div className="flex gap-2">
                           <Button
@@ -582,7 +594,11 @@ export default function Products() {
                     </Label>
                     <Select
                       value={form.productName}
-                      onValueChange={(value) => setForm(f => ({ ...f, productName: value }))}
+                      onValueChange={(value) => setForm(f => ({
+                        ...f,
+                        productName: value,
+                        metric: isPacketProduct(value) ? 'Packets' : (f.metric === 'Packets' ? 'Liters' : f.metric)
+                      }))}
                     >
                       <SelectTrigger className="w-full h-10 sm:h-11 border-border/50 focus:border-primary transition-colors">
                         <SelectValue placeholder="Select Product" />
@@ -601,7 +617,7 @@ export default function Products() {
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-medium flex items-center gap-1">
-                      Price (₹ per Liter) <span className="text-red-600">*</span>
+                      {isPacketProduct(form.productName) ? 'Price (₹ per Packet)' : 'Price (₹ per Liter)'} <span className="text-red-600">*</span>
                     </Label>
                     <Input
                       name="price"
@@ -621,7 +637,9 @@ export default function Products() {
                 {/* Tank Capacity & Current Level */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium">Tank Capacity (L) <span className="text-red-600">*</span></Label>
+                    <Label className="text-sm font-medium">
+                      {isPacketProduct(form.productName) ? 'Total Packets Capacity' : 'Tank Capacity (L)'} <span className="text-red-600">*</span>
+                    </Label>
                     <Input
                       name="tankCapacity"
                       type="number"
@@ -639,7 +657,9 @@ export default function Products() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium">Current Level (L) <span className="text-red-600">*</span></Label>
+                    <Label className="text-sm font-medium">
+                      {isPacketProduct(form.productName) ? 'Current Packets in Stock' : 'Current Level (L)'} <span className="text-red-600">*</span>
+                    </Label>
                     <Input
                       name="currentLevel"
                       type="number"
@@ -658,11 +678,30 @@ export default function Products() {
                     {form.tankCapacity !== "" && form.currentLevel !== "" && parseFloat(form.currentLevel) > parseFloat(form.tankCapacity) && (
                       <p className="text-xs text-destructive flex items-center gap-1 mt-1">
                         <span className="h-1 w-1 rounded-full bg-destructive"></span>
-                        Current Level cannot exceed Tank Capacity
+                        {isPacketProduct(form.productName) ? 'Current Stock cannot exceed Total Capacity' : 'Current Level cannot exceed Tank Capacity'}
                       </p>
                     )}
                   </div>
                 </div>
+                {/* ml per Packet — 2T only */}
+                {isPacketProduct(form.productName) && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">ml per Packet <span className="text-red-600">*</span></Label>
+                    <Input
+                      name="mlPerPacket"
+                      type="number"
+                      inputMode="decimal"
+                      step="1"
+                      value={form.mlPerPacket}
+                      min="0"
+                      onChange={handleFormChange}
+                      onWheel={preventWheel}
+                      className="h-10 sm:h-11 border-border/50 focus:border-primary transition-colors"
+                      placeholder="e.g. 500"
+                      required
+                    />
+                  </div>
+                )}
                 {/* Supplier */}
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Supplier</Label>
@@ -695,19 +734,23 @@ export default function Products() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">Metric</Label>
-                    <Select
-                      value={form.metric}
-                      onValueChange={(value) => setForm(f => ({ ...f, metric: value }))}
-                    >
-                      <SelectTrigger className="w-full h-10 sm:h-11 border-border/50 focus:border-primary transition-colors">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="z-[10000]">
-                        <SelectItem value="Liters">Liters</SelectItem>
-                        <SelectItem value="Gallons">Gallons</SelectItem>
-                        <SelectItem value="Kiloliters">Kiloliters</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    {isPacketProduct(form.productName) ? (
+                      <Input value="Packets" readOnly className="h-10 sm:h-11 bg-muted cursor-not-allowed" />
+                    ) : (
+                      <Select
+                        value={form.metric}
+                        onValueChange={(value) => setForm(f => ({ ...f, metric: value }))}
+                      >
+                        <SelectTrigger className="w-full h-10 sm:h-11 border-border/50 focus:border-primary transition-colors">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="z-[10000]">
+                          <SelectItem value="Liters">Liters</SelectItem>
+                          <SelectItem value="Gallons">Gallons</SelectItem>
+                          <SelectItem value="Kiloliters">Kiloliters</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">Status</Label>

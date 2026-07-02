@@ -38,15 +38,29 @@ async function getBySaleId(orgId, saleId) {
   return Collections.find({ organizationId: orgId, saleId });
 }
 
+async function getByDateRange(orgId, from, to) {
+  return Collections.find({
+    organizationId: orgId,
+    dateTime: { $gte: new Date(from), $lte: new Date(to) }
+  }).sort({ dateTime: -1 });
+}
+
 async function create(orgId, dto) {
-  const { empId, dateTime, cashReceived = 0, phonePay = 0, creditCard = 0, productName, guns, price } = dto;
+  const { empId, dateTime, cashReceived = 0, phonePay = 0, creditCard = 0, productName, guns, price, saleId } = dto;
 
   const istSecond = toIstSecondPlus5(dateTime);
   const productNorm = normalize(productName);
   const gunsNorm = normalize(guns);
   const saleMatchKey = buildKey(istSecond, productNorm, gunsNorm, price);
 
-  const matchingSale = await findMatchingSale(orgId, empId, productNorm, gunsNorm, istSecond, price);
+  // When the caller (our own frontend, right after creating the sale) already knows the
+  // saleId, use it directly — the fuzzy time/price/product match below is ambiguous
+  // whenever two sales share the same product+gun+price+timestamp (e.g. two batch entries
+  // for the same 2T packet price added without changing the sale time), and picks the
+  // wrong sale, silently clobbering that sale's history entry.
+  const matchingSale = saleId
+    ? await Sales.findOne({ organizationId: orgId, saleId })
+    : await findMatchingSale(orgId, empId, productNorm, gunsNorm, istSecond, price);
 
   const expectedTotal = matchingSale ? matchingSale.salesInRupees : 0;
   const receivedTotal = cashReceived + phonePay + creditCard;
@@ -79,6 +93,8 @@ async function create(orgId, dto) {
       organizationId: orgId,
       saleId: matchingSale.saleId,
       dateTime: matchingSale.dateTime,
+      saleEndTime: matchingSale.saleEndTime,
+      saleCreatedAt: matchingSale.createdAt,
       productName: matchingSale.productName,
       guns: matchingSale.guns,
       empId: matchingSale.empId,
@@ -122,4 +138,4 @@ async function remove(orgId, id) {
   if (!collection) throw new ApiError(404, 'Collection not found');
 }
 
-module.exports = { getAll, getBySaleId, create, update, remove };
+module.exports = { getAll, getBySaleId, getByDateRange, create, update, remove };

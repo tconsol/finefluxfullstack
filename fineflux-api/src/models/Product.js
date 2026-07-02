@@ -10,7 +10,10 @@ const productSchema = new mongoose.Schema({
   supplier: String,
   currentLevel: { type: mongoose.Types.Decimal128, default: 0 },
   metric: String,
-  empId: String
+  empId: String,
+  // Packet-based products (2T oil): tankCapacity/currentLevel/price still hold the
+  // packet count and cost-per-packet, this just records the ml size per packet for display.
+  mlPerPacket: Number
 }, { timestamps: true });
 
 require('./jsonPlugin').applyJsonTransform(productSchema);

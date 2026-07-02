@@ -90,7 +90,9 @@ const initialFormState = {
   shortCollections: "",
   testingTotal: "",
   saleDate: dayjs().format("YYYY-MM-DD"),
-  saleTime: dayjs().format("HH:mm"),
+  saleStartTime: dayjs().format("HH:mm"),
+  saleEndTime: "",
+  empId: "",
 };
 
 type FormState = typeof initialFormState;
@@ -104,7 +106,7 @@ function entryKey(e: FormState) {
     String(e.testingTotal ?? ""),
     String(e.price ?? ""),
     e.saleDate,
-    e.saleTime,
+    e.saleStartTime,
   ].join("|");
 }
 
@@ -190,6 +192,15 @@ export default function Sales() {
     queryKey: ["guninfo", orgId],
     queryFn: async () =>
       (await axios.get(`${API_CONFIG.BASE_URL}/api/organizations/${orgId}/guninfo`)).data || [],
+  });
+
+  const { data: employees = [] } = useQuery({
+    queryKey: ["employees", orgId],
+    queryFn: async () => {
+      const res = await axios.get(`${API_CONFIG.BASE_URL}/api/organizations/${orgId}/employees?page=0&size=200`);
+      return Array.isArray(res.data?.content) ? res.data.content : Array.isArray(res.data) ? res.data : [];
+    },
+    enabled: !isEmployee && !!orgId,
   });
 
   // Fetch employee duties to filter guns for employees
@@ -575,12 +586,16 @@ export default function Sales() {
   const saleCollectionMutation = useMutation({
     mutationFn: async (input: FormState) => {
       // Use manual date/time if provided, otherwise use current time
-      const manualDateTime = dayjs(`${input.saleDate}T${input.saleTime}`).format("YYYY-MM-DDTHH:mm:ss");
+      const manualDateTime = dayjs(`${input.saleDate}T${input.saleStartTime}`).format("YYYY-MM-DDTHH:mm:ss");
       const localDateTime = manualDateTime || dayjs().format("YYYY-MM-DDTHH:mm:ss");
+      const saleEndDateTime = input.saleEndTime
+        ? dayjs(`${input.saleDate}T${input.saleEndTime}`).format("YYYY-MM-DDTHH:mm:ss")
+        : undefined;
+      const saleEmpId = input.empId || empId;
 
       const saleDTO = {
         organizationId: orgId,
-        empId,
+        empId: saleEmpId,
         productName: input.fuel,
         guns: input.gun,
         openingStock: Number(input.openingStock),
@@ -590,20 +605,8 @@ export default function Sales() {
         salesInLiters: Number(input.saleLiters) || 0,
         salesInRupees: Number(input.salesInRupees) || 0,
         dateTime: localDateTime,
+        saleEndTime: saleEndDateTime,
       };
-
-      const collectionDTO = {
-        organizationId: orgId,
-        empId,
-        productName: input.fuel,
-        guns: input.gun,
-        price: Number(input.price),
-        dateTime: localDateTime,
-        cashReceived: Number(input.cashReceived) || 0,
-        phonePay: Number(input.phonePay) || 0,
-        creditCard: Number(input.creditCard) || 0,
-      };
-
 
       try {
         const saleResponse = await axios.post(
@@ -611,6 +614,23 @@ export default function Sales() {
           saleDTO,
           { timeout: API_CONFIG.TIMEOUT }
         );
+
+        // Pass the saleId straight through so the backend links this collection to the
+        // exact sale we just created, instead of guessing by time/price/product — that
+        // guess breaks whenever two entries in the same batch share the same product,
+        // gun, price and (unchanged) timestamp.
+        const collectionDTO = {
+          organizationId: orgId,
+          empId: saleEmpId,
+          saleId: saleResponse.data?.saleId,
+          productName: input.fuel,
+          guns: input.gun,
+          price: Number(input.price),
+          dateTime: localDateTime,
+          cashReceived: Number(input.cashReceived) || 0,
+          phonePay: Number(input.phonePay) || 0,
+          creditCard: Number(input.creditCard) || 0,
+        };
 
         const collectionResponse = await axios.post(
           `${API_CONFIG.BASE_URL}/api/organizations/${orgId}/collections`,
@@ -691,6 +711,14 @@ export default function Sales() {
 
   function isFormValid(f: FormState, skipCollectionCheck: boolean = false) {
     const { fuel, price, gun, openingStock, closingStock, testingTotal, saleLiters, shortCollections } = f;
+
+    if (!isEmployee && !f.empId) {
+      setValidationError({
+        title: "Missing Employee",
+        message: "Please select which employee this sale is for."
+      });
+      return false;
+    }
 
     if (!fuel || !gun || price === "") {
       setValidationError({
@@ -1324,7 +1352,7 @@ export default function Sales() {
         )}
       </div>
 
-      {/* Point 1: Collections Overview - Hidden for employees */}
+      {/* Collections Overview — disabled per request, kept for reference
       {!isEmployee && (
         <Card className="overflow-hidden border-0 shadow-xl bg-gradient-to-br from-background via-muted/5 to-background">
           <CardHeader className="border-b bg-gradient-to-r from-primary/5 to-accent/5 px-4 py-3">
@@ -1402,7 +1430,6 @@ export default function Sales() {
                 </div>
               </div>
 
-              {/* Point 6: Excess Collections Card - Visible to Owner and Manager */}
               {(isOwner || isManager) && Number(getProp(collectionSummary, 'excess') || collectionSummary?.excess || 0) > 0 && (
                 <div className="group relative overflow-hidden rounded-lg bg-gradient-to-br from-teal-500 to-cyan-600 p-4 text-white shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105">
                   <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12" />
@@ -1420,6 +1447,7 @@ export default function Sales() {
           </CardContent>
         </Card>
       )}
+      */}
       {/* SALE MODE SWITCHER - ONLY 2 BUTTONS */}
       <div className="w-full flex flex-col sm:flex-row items-stretch gap-3 mb-4">
         <Button
@@ -1501,13 +1529,40 @@ export default function Sales() {
                 </div>
               )}
 
-              {/* Employee ID */}
+              {/* Entered By — fixed to whoever is logged in, never editable */}
               <div className="space-y-2">
-                <Label htmlFor="empId" className="text-sm font-semibold flex items-center gap-2">
+                <Label htmlFor="enteredBy" className="text-sm font-semibold flex items-center gap-2">
                   <User className="h-4 w-4 text-muted-foreground" />
-                  Employee ID
+                  Entered By
                 </Label>
-                <Input id="empId" name="empId" value={empId || ""} readOnly disabled className="bg-muted/50" />
+                <Input id="enteredBy" name="enteredBy" value={`${empId || ""}${user?.name ? ` - ${user.name}` : ""}`} readOnly disabled className="bg-muted/50" />
+              </div>
+
+              {/* Sale For Employee — which employee's shift/duty this sale is attributed to */}
+              <div className="space-y-2">
+                <Label htmlFor="saleEmpId" className="text-sm font-semibold flex items-center gap-2">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  Sale For Employee <span className="text-red-600">*</span>
+                </Label>
+                {isEmployee ? (
+                  <Input id="saleEmpId" name="saleEmpId" value={`${empId || ""}${user?.name ? ` - ${user.name}` : ""}`} readOnly disabled className="bg-muted/50" />
+                ) : (
+                  <Select
+                    value={form.empId || ""}
+                    onValueChange={(val) => setForm((f) => ({ ...f, empId: val }))}
+                  >
+                    <SelectTrigger id="saleEmpId" className="w-full shadow-sm">
+                      <SelectValue placeholder="Select Employee" />
+                    </SelectTrigger>
+                    <SelectContent className="z-[10000]">
+                      {employees.map((emp: any) => (
+                        <SelectItem key={emp.id || emp.empId} value={emp.empId}>
+                          {emp.empId} - {emp.firstName} {emp.lastName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
 
               {/* Product & Gun Selection */}
@@ -1553,7 +1608,7 @@ export default function Sales() {
                   Sales Date & Time
                 </h3>
                 <p className="text-xs text-amber-700 dark:text-amber-300 mb-2">Select the date and time for this sale entry. Leave as current time for auto-timestamp.</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div className="space-y-1">
                     <Label htmlFor="saleDate" className="text-xs font-medium">Sale Date</Label>
                     <Input
@@ -1566,19 +1621,31 @@ export default function Sales() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor="saleTime" className="text-xs font-medium">Sale Time</Label>
+                    <Label htmlFor="saleStartTime" className="text-xs font-medium">Sale Start</Label>
                     <Input
-                      id="saleTime"
-                      name="saleTime"
+                      id="saleStartTime"
+                      name="saleStartTime"
                       type="time"
-                      value={form.saleTime}
+                      value={form.saleStartTime}
+                      onChange={handleFormChange}
+                      className="font-semibold text-sm h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="saleEndTime" className="text-xs font-medium">Sale End</Label>
+                    <Input
+                      id="saleEndTime"
+                      name="saleEndTime"
+                      type="time"
+                      value={form.saleEndTime}
                       onChange={handleFormChange}
                       className="font-semibold text-sm h-9"
                     />
                   </div>
                 </div>
                 <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                  Selected: {dayjs(`${form.saleDate}T${form.saleTime}`).format("DD MMM YYYY, hh:mm A")}
+                  Selected: {dayjs(`${form.saleDate}T${form.saleStartTime}`).format("DD MMM YYYY, hh:mm A")}
+                  {form.saleEndTime ? ` — ends ${dayjs(`${form.saleDate}T${form.saleEndTime}`).format("hh:mm A")}` : ""}
                 </p>
               </div>
 

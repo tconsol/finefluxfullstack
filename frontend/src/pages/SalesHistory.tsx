@@ -57,6 +57,8 @@ interface SaleRecord {
   id: string;
   saleId?: string;
   dateTime: string;
+  saleEndTime?: string;
+  saleCreatedAt?: string;
   productName: string;
   guns: string;
   salesInLiters: number;
@@ -442,7 +444,7 @@ const exportToPDF = (
 };
 
 // ============ Compact Mobile-First Sale Record Card ============
-const SaleRecordCard = ({ record, index }: { record: SaleRecord; index: number }) => {
+const SaleRecordCard = ({ record, index, employeeLabel }: { record: SaleRecord; index: number; employeeLabel: string }) => {
   const [expanded, setExpanded] = useState(false);
 
   // Check if sale was deleted
@@ -481,13 +483,14 @@ const SaleRecordCard = ({ record, index }: { record: SaleRecord; index: number }
                 <span className="flex items-center gap-1">
                   <Clock className="h-3.5 w-3.5" />
                   {dayjs(record.dateTime).format("hh:mm A")}
+                  {record.saleEndTime ? ` – ${dayjs(record.saleEndTime).format("hh:mm A")}` : ""}
                 </span>
                 <Badge
                   variant="secondary"
                   className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] sm:text-xs"
                 >
                   <User className="h-3 w-3" />
-                  {record.empId}
+                  {employeeLabel}
                 </Badge>
                 {isSaleDeleted && (
                   <Badge
@@ -820,6 +823,29 @@ export default function SalesHistory() {
   const navigate = useNavigate();
 
   const [from, to] = dateRange;
+
+  const { data: employees = [] } = useQuery({
+    queryKey: ["employees", orgId],
+    queryFn: async () => {
+      const res = await axios.get(`${API_CONFIG.BASE_URL}/api/organizations/${orgId}/employees?page=0&size=200`);
+      return Array.isArray(res.data?.content) ? res.data.content : Array.isArray(res.data) ? res.data : [];
+    },
+    enabled: !!orgId,
+  });
+
+  const employeeFirstNameById = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const emp of employees) {
+      map[emp.empId] = emp.firstName || "";
+    }
+    return map;
+  }, [employees]);
+
+  const formatEmployee = (empId?: string) => {
+    if (!empId) return "—";
+    const name = employeeFirstNameById[empId];
+    return name ? `${empId} - ${name}` : empId;
+  };
 
   useEffect(() => {
     if (preset !== "custom") {
@@ -1250,12 +1276,11 @@ export default function SalesHistory() {
               animate={{ opacity: 1 }}
               className="overflow-x-auto flex-1 min-h-0 rounded-lg border border-border/50 bg-white dark:bg-slate-900"
             >
-              <Table className="[&_td]:py-1.5 [&_th]:py-1.5 [&_td]:px-2 [&_th]:px-2">
+              <Table className="[&_td]:py-2 [&_th]:py-2.5 [&_td]:px-3 [&_th]:px-3">
                 <TableHeader>
                   <TableRow className="bg-slate-50 dark:bg-slate-800/50">
-                    <TableHead className="font-semibold text-xs">Date & Time</TableHead>
-                    <TableHead className="font-semibold text-xs">Product</TableHead>
-                    <TableHead className="font-semibold text-xs">Gun</TableHead>
+                    <TableHead className="font-semibold text-xs whitespace-nowrap">Timing</TableHead>
+                    <TableHead className="font-semibold text-xs">Product / Gun</TableHead>
                     <TableHead className="text-right font-semibold text-xs">Liters</TableHead>
                     <TableHead className="text-right font-semibold text-xs">Amount</TableHead>
                     <TableHead className="font-semibold text-xs">Payment</TableHead>
@@ -1263,44 +1288,55 @@ export default function SalesHistory() {
                     <TableHead className="font-semibold text-xs">Employee</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
+                <TableBody className="[&_tr]:border-b [&_tr]:border-border [&_tr:last-child]:border-b-0 [&_tr:nth-child(even)]:bg-muted/30">
                   {paginatedRecords.map((record, index) => (
                     <motion.tr
                       key={record.id}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      transition={{ delay: index * 0.05 }}
-                      className="border-t border-border/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                      transition={{ delay: index * 0.02 }}
+                      className="hover:bg-slate-100 dark:hover:bg-slate-800/70 transition-colors align-middle"
                     >
-                      <TableCell className="text-xs">
-                        <div className="font-medium">{dayjs(record.dateTime).format("DD MMM")}</div>
-                        <div className="text-[10px] text-muted-foreground">{dayjs(record.dateTime).format("HH:mm")}</div>
+                      <TableCell className="text-xs whitespace-nowrap leading-snug">
+                        <div className="font-medium text-foreground">{dayjs(record.dateTime).format("DD MMM YYYY")}</div>
+                        <div className="text-muted-foreground">
+                          {dayjs(record.dateTime).format("hh:mm A")}
+                          {record.saleEndTime ? ` – ${dayjs(record.saleEndTime).format("hh:mm A")}` : ""}
+                        </div>
+                        {record.saleCreatedAt && (
+                          <div className="text-[10px] text-muted-foreground/70">Created {dayjs(record.saleCreatedAt).format("hh:mm A")}</div>
+                        )}
                       </TableCell>
-                      <TableCell className="font-medium text-xs">{record.productName}</TableCell>
-                      <TableCell className="text-xs capitalize">{record.guns}</TableCell>
+                      <TableCell className="text-xs leading-snug">
+                        <div className="font-medium">{record.productName}</div>
+                        <div className="text-[10px] text-muted-foreground capitalize">Gun: {record.guns}</div>
+                      </TableCell>
                       <TableCell className="text-right text-xs">{record.salesInLiters.toFixed(2)}L</TableCell>
                       <TableCell className="text-right font-semibold text-xs">{formatCurrency(record.salesInRupees)}</TableCell>
                       <TableCell>
-                        <div className="flex flex-wrap gap-0.5">
+                        <div className="flex flex-wrap items-center gap-1">
                           {record.cashReceived > 0 && (
-                            <Badge variant="secondary" className="bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-400 text-[10px] px-1 py-0.5">
+                            <Badge variant="secondary" className="w-fit bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-400 text-[10px] px-1.5 py-0.5">
                               Cash: {formatCurrency(record.cashReceived)}
                             </Badge>
                           )}
                           {record.phonePay > 0 && (
-                            <Badge variant="secondary" className="bg-violet-100 dark:bg-violet-950 text-violet-800 dark:text-violet-400 text-[10px] px-1 py-0.5">
+                            <Badge variant="secondary" className="w-fit bg-violet-100 dark:bg-violet-950 text-violet-800 dark:text-violet-400 text-[10px] px-1.5 py-0.5">
                               UPI: {formatCurrency(record.phonePay)}
                             </Badge>
                           )}
                           {record.creditCard > 0 && (
-                            <Badge variant="secondary" className="bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-400 text-[10px] px-1 py-0.5">
+                            <Badge variant="secondary" className="w-fit bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-400 text-[10px] px-1.5 py-0.5">
                               Card: {formatCurrency(record.creditCard)}
                             </Badge>
+                          )}
+                          {record.cashReceived <= 0 && record.phonePay <= 0 && record.creditCard <= 0 && (
+                            <span className="text-[10px] text-muted-foreground">—</span>
                           )}
                         </div>
                       </TableCell>
                       <TableCell className="text-right font-semibold text-xs">{formatCurrency(record.receivedTotal)}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{record.empId}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{formatEmployee(record.empId)}</TableCell>
                     </motion.tr>
                   ))}
                 </TableBody>
@@ -1312,7 +1348,7 @@ export default function SalesHistory() {
           <div className="space-y-2 flex-1 min-h-0 flex flex-col">
             <div className="space-y-1.5 overflow-y-auto flex-1 min-h-0">
               {paginatedRecords.map((record, index) => (
-                <SaleRecordCard key={record.id} record={record} index={index} />
+                <SaleRecordCard key={record.id} record={record} index={index} employeeLabel={formatEmployee(record.empId)} />
               ))}
             </div>
           </div>

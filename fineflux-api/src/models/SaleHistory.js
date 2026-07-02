@@ -4,6 +4,8 @@ const saleHistorySchema = new mongoose.Schema({
   organizationId: String,
   saleId: String,
   dateTime: Date,
+  saleEndTime: Date,
+  saleCreatedAt: Date,
   productName: String,
   guns: String,
   empId: String,

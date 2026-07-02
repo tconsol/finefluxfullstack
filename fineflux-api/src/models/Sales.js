@@ -4,6 +4,7 @@ const salesSchema = new mongoose.Schema({
   saleId: { type: String, required: true },
   organizationId: { type: String, required: true },
   dateTime: { type: Date, required: true },
+  saleEndTime: Date,
   productName: String,
   guns: String,
   empId: String,

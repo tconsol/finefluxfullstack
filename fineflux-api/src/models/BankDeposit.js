@@ -2,10 +2,14 @@ const mongoose = require('mongoose');
 
 const bankDepositSchema = new mongoose.Schema({
   organizationId: { type: String, required: true },
+  saleDate: Date,
+  saleCashTotal: Number,
+  remainingCash: Number,
   depositDate: { type: Date, required: true },
   amount: { type: Number, required: true },
   bankName: String,
   accountNumber: String,
+  ifscCode: String,
   referenceNumber: String,
   depositedBy: String,
   receiptUrl: String,

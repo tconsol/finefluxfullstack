@@ -372,10 +372,10 @@ export default function Documents() {
   // Request a signed download URL from the backend (recommended for GCS-hosted files),
   // fall back to the stored `fileUrl` if the server doesn't provide one.
   const handleDownload = async (doc: any) => {
-    // Simplified download flow:
-    // 1) Request signed URL from backend (if available).
-    // 2) If signed URL exists, navigate current tab to it (no new tab/popup).
-    // 3) Otherwise fetch the blob in-page and trigger an anchor download.
+    // 1) Request a signed URL from the backend (if available).
+    // 2) Fetch the file as a blob and trigger a real local download (not just opening the link).
+    // 3) If the blob fetch fails (e.g. CORS), open the file in a new tab instead of
+    //    navigating the current tab away.
     let targetUrl = doc.fileUrl;
     try {
       if (doc?.id && orgId) {
@@ -386,10 +386,6 @@ export default function Documents() {
           );
           const maybeUrl = typeof resp.data === 'string' ? resp.data : resp.data?.url || resp.data;
           if (maybeUrl) {
-            console.group('Documents: signed URL fetched');
-            console.log('rawSignedUrl:', maybeUrl);
-            console.log('resp.data:', resp.data);
-            console.groupEnd();
             const norm = normalizeSignedUrl(maybeUrl);
             targetUrl = norm || maybeUrl;
           }
@@ -400,35 +396,27 @@ export default function Documents() {
 
       if (!targetUrl) throw new Error('No download URL available');
 
-      // Navigate current tab to the signed URL so browser handles Content-Disposition
-      window.location.href = targetUrl;
-      toast({ title: 'Download started', description: 'Opening the document...' });
-      return;
+      const response = await fetch(targetUrl);
+      if (!response.ok) throw new Error('Network response was not ok');
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = `${(doc?.documentType || 'document').replace(/\s+/g, '_')}_${Date.now()}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+
+      toast({ title: 'Success', description: 'Document downloaded successfully!' });
     } catch (err: any) {
-    console.error('Download failed, falling back to blob fetch', err);
-
-    // Fallback: fetch the resource and trigger download via blob in-page
-      try {
-        const fallbackUrl = targetUrl || doc.fileUrl;
-        if (!fallbackUrl) throw new Error('No URL available to fetch for fallback');
-        const response = await fetch(fallbackUrl);
-        if (!response.ok) throw new Error('Network response was not ok');
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `${(doc?.documentType || 'document').replace(/\s+/g, '_')}_${Date.now()}`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        // revoke immediately for the in-page download link
-        window.URL.revokeObjectURL(url);
-
-        toast({ title: 'Success', description: 'Document downloaded successfully!' });
-      } catch (finalErr: any) {
-        console.error('Final download attempt failed', finalErr);
-        toast({ title: 'Error', description: finalErr?.message || 'Failed to download document', variant: 'destructive' });
+      console.error('Blob download failed, opening in a new tab instead', err);
+      if (targetUrl) {
+        window.open(targetUrl, '_blank', 'noopener,noreferrer');
+        toast({ title: 'Opened in new tab', description: 'Direct download failed, so the document was opened instead.' });
+      } else {
+        toast({ title: 'Error', description: err?.message || 'Failed to download document', variant: 'destructive' });
       }
     }
   };

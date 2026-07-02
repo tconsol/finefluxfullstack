@@ -20,7 +20,10 @@ module.exports = {
 
   gcsBucket: process.env.GCS_BUCKET,
   gcsProjectId: process.env.GCS_PROJECT_ID,
-  gcsKeyFile: process.env.GCS_KEY_FILE,
+  gcsClientEmail: process.env.GCS_CLIENT_EMAIL,
+  // Service account keys store the private key with literal \n escapes since env files
+  // can't hold real newlines; unescape them back into a real PEM before use.
+  gcsPrivateKey: process.env.GCS_PRIVATE_KEY ? process.env.GCS_PRIVATE_KEY.replace(/\\n/g, '\n') : undefined,
 
   smtpHost: process.env.SMTP_HOST,
   smtpPort: parseInt(process.env.SMTP_PORT || '465', 10),

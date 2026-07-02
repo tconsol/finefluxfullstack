@@ -719,7 +719,7 @@ export default function Inventory() {
               <div className="space-y-3">
                 <Label className="text-sm font-bold text-foreground flex items-center gap-2">
                   <TrendingUp className="h-4 w-4 text-green-600" />
-                  Amount to Add (Liters) <span className="text-red-600">*</span>
+                  Amount to Add ({products.find((p: any) => p.id === addProductId)?.metric || 'Liters'}) <span className="text-red-600">*</span>
                 </Label>
                 <div className="relative">
                   <Input
@@ -732,7 +732,7 @@ export default function Inventory() {
                     className="h-12 pl-4 pr-16 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border-2 border-green-200/50 dark:border-green-800/50 hover:border-green-400 focus:border-green-500 focus:ring-4 focus:ring-green-500/20 transition-all rounded-xl shadow-sm text-lg font-semibold"
                   />
                   <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">
-                    Liters
+                    {products.find((p: any) => p.id === addProductId)?.metric || 'Liters'}
                   </div>
                 </div>
               </div>
@@ -791,14 +791,14 @@ export default function Inventory() {
                 <p className="text-sm font-medium text-muted-foreground mb-2">Current Stock Level</p>
                 <div className="flex items-end gap-2">
                   <p className="text-4xl font-black text-foreground">{Number(stockModal.currentLevel || 0).toLocaleString()}</p>
-                  <p className="text-lg font-bold text-muted-foreground pb-1">Liters</p>
+                  <p className="text-lg font-bold text-muted-foreground pb-1">{stockModal.metric || 'Liters'}</p>
                 </div>
               </div>
 
               <div className="space-y-3">
                 <Label className="text-sm font-bold text-foreground flex items-center gap-2">
                   <Plus className="h-4 w-4 text-green-600" />
-                  Amount to Add (Liters) <span className="text-red-600">*</span>
+                  Amount to Add ({stockModal.metric || 'Liters'}) <span className="text-red-600">*</span>
                 </Label>
                 <Input
                   type="number"
@@ -817,7 +817,7 @@ export default function Inventory() {
                   <p className="text-4xl font-black bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
                     {Number(stockModal.currentLevel || 0) + (Number(stockValue) || 0)}
                   </p>
-                  <p className="text-lg font-bold text-muted-foreground pb-1">Liters</p>
+                  <p className="text-lg font-bold text-muted-foreground pb-1">{stockModal.metric || 'Liters'}</p>
                 </div>
               </div>
 

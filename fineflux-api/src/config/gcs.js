@@ -3,7 +3,10 @@ const env = require('./env');
 
 const storage = new Storage({
   projectId: env.gcsProjectId,
-  keyFilename: env.gcsKeyFile
+  credentials: {
+    client_email: env.gcsClientEmail,
+    private_key: env.gcsPrivateKey
+  }
 });
 
 const bucket = storage.bucket(env.gcsBucket);

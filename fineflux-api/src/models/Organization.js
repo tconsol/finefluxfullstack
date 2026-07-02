@@ -14,7 +14,10 @@ const organizationSchema = new mongoose.Schema({
   email: { type: String, lowercase: true },
   licenseNumber: String,
   ownerFirstName: { type: String, required: true },
-  ownerLastName: { type: String, required: true }
+  ownerLastName: { type: String, required: true },
+  bankName: String,
+  bankAccountNumber: String,
+  bankIfscCode: String
 }, { timestamps: true });
 
 require('./jsonPlugin').applyJsonTransform(organizationSchema);

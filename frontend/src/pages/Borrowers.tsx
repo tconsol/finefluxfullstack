@@ -213,7 +213,9 @@ export default function Borrowers() {
         return base;
       case 'all':
       default:
-        return base;
+        // Unlike /today, /week, /month, /range, the base /customers endpoint is
+        // paginated server-side (default size 20) — request enough to get everyone.
+        return `${base}?page=0&size=1000`;
     }
   };
 

@@ -16,6 +16,9 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=8080
+# Business runs in IST; naive datetime strings (no UTC offset) from the frontend must
+# resolve against IST, not whatever timezone the container host defaults to.
+ENV TZ=Asia/Kolkata
 
 # dumb-init for proper signal handling (graceful shutdown)
 RUN apk add --no-cache dumb-init

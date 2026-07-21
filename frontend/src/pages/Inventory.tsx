@@ -153,17 +153,10 @@ export default function Inventory() {
         throw new Error("Employee ID is required to update inventory");
       }
       
-      const tank = tankList.find((inv: any) => inv.productId === productId) || {};
-      const dto = {
-        currentLevel: Number(amount),
-        totalCapacity: tank.totalCapacity,
-        stockValue: tank.stockValue,
-        metric: tank.metric,
-        status: tank.status ?? true,
-        tankCapacity: tank.tankCapacity,
-      };
-      
-      // Updated URL to match backend: /inventories/{productId}/employees/{empId}
+      // `amount` here is the quantity to add to the current stock, not an absolute
+      // level — the backend expects it as `increment` and adds it to the last logged level.
+      const dto = { increment: Number(amount) };
+
       const url = `${API_CONFIG.BASE_URL}/api/organizations/${orgId}/inventories/${productId}/employees/${empId}`;
       await axios.put(url, dto);
       return { productId, amount };

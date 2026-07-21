@@ -1,6 +1,16 @@
 const path = require('path');
 require('dotenv').config({ path: path.resolve(process.cwd(), '.env') });
 
+// The whole business (petrol station operations) runs in IST. Every timestamp the
+// frontend sends without an explicit UTC offset (e.g. "2026-07-02T09:00:00") is a naive
+// IST wall-clock string. Node's `new Date(...)` and Mongoose's Date casting both resolve
+// naive strings using the PROCESS's OS timezone — fine on a dev machine already set to
+// IST, but silently wrong (shifted by up to 5:30h) on any host that defaults to UTC
+// (Docker/Cloud Run/etc). Pinning TZ here, before any Date is ever constructed, makes
+// naive-string parsing consistently resolve to IST everywhere, matching what the
+// frontend assumes and what the original Spring backend did (SPRING_JACKSON_TIMEZONE).
+process.env.TZ = 'Asia/Kolkata';
+
 function required(name, fallback) {
   const val = process.env[name] ?? fallback;
   if (val === undefined) throw new Error(`Missing required env var: ${name}`);

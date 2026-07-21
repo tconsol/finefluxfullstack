@@ -102,9 +102,13 @@ const rangeForPreset = (preset: DatePreset): [Dayjs, Dayjs] => {
     case "today":
       return [today.startOf("day"), today.endOf("day")];
     case "week":
-      return [today.startOf("week"), today.endOf("week")];
+      // Rolling last 7 days, not calendar-week-so-far — otherwise this shows almost
+      // nothing right after the calendar week rolls over (e.g. on a Monday/Tuesday),
+      // even though there was plenty of activity "recently".
+      return [today.subtract(6, "day").startOf("day"), today.endOf("day")];
     case "month":
-      return [today.startOf("month"), today.endOf("month")];
+      // Rolling last 30 days, same reasoning as "week" above.
+      return [today.subtract(29, "day").startOf("day"), today.endOf("day")];
     case "all":
       // Return a very wide range to get all records
       return [today.subtract(10, "year"), today.endOf("day")];

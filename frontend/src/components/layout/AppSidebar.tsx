@@ -75,6 +75,7 @@ const navigationItems: NavItem[] = [
       { title: 'Documents', icon: FileText, href: '/documents', roles: ['owner', 'manager'] },
     ],
   },
+  { title: 'Daily Summary', icon: Banknote, href: '/daily-summary', roles: ['owner', 'manager'], badge: 'New' },
   { title: 'Gun Info', icon: Wrench, href: '/guninfo', roles: ['owner', 'manager'] },
   { title: 'Settings', icon: Settings, href: '/settings', roles: ['owner', 'manager'] },
   { title: 'My Profile', icon: Users, href: '/profile', roles: ['employee', 'manager', 'owner'] },

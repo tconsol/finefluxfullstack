@@ -21,5 +21,6 @@ module.exports = {
   StockRegister: require('./StockRegister'),
   DensityRegister: require('./DensityRegister'),
   Document: require('./Document'),
-  BankDeposit: require('./BankDeposit')
+  BankDeposit: require('./BankDeposit'),
+  SalaryPayment: require('./SalaryPayment')
 };

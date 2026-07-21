@@ -21,6 +21,8 @@ router.use('/expenses', require('./expenseRoutes'));
 router.use('/expense-categories', require('./expenseCategoryRoutes'));
 router.use('/finance-summary', require('./financeSummaryRoutes'));
 router.use('/profit-loss', require('./profitLossRoutes'));
+router.use('/salary-payments', require('./salaryPaymentRoutes'));
+router.use('/daily-summary', require('./dailySummaryRoutes'));
 
 router.use('/stock-register', require('./stockRegisterRoutes'));
 router.use('/density-register', require('./densityRegisterRoutes'));

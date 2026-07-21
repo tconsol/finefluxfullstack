@@ -39,6 +39,8 @@ import SpecialDutiesHistory from "./pages/SpecialDutiesHistory";
 import DailyDutiesHistory from "./pages/DailyDutiesHistory";
 import { useProfileImageSync } from "@/hooks/useProfileImageSync";
 import StockRegisterPage from "./pages/StockRegisterPage";
+import DailySummary from "./pages/DailySummary";
+import DailySummaryDetail from "./pages/DailySummaryDetail";
 
 const queryClient = new QueryClient();
 
@@ -333,6 +335,26 @@ const App: React.FC = () => {
                   <ProtectedRoute requiredRoles={["owner", "manager", "employee"]}>
                     <DashboardLayout>
                       <SalesHistory />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/daily-summary"
+                element={
+                  <ProtectedRoute requiredRoles={["owner", "manager"]}>
+                    <DashboardLayout>
+                      <DailySummary />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/daily-summary/:date"
+                element={
+                  <ProtectedRoute requiredRoles={["owner", "manager"]}>
+                    <DashboardLayout>
+                      <DailySummaryDetail />
                     </DashboardLayout>
                   </ProtectedRoute>
                 }

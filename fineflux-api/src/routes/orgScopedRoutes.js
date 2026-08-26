@@ -23,6 +23,7 @@ router.use('/finance-summary', require('./financeSummaryRoutes'));
 router.use('/profit-loss', require('./profitLossRoutes'));
 router.use('/salary-payments', require('./salaryPaymentRoutes'));
 router.use('/daily-summary', require('./dailySummaryRoutes'));
+router.use('/payments', require('./paymentReportRoutes'));
 
 router.use('/stock-register', require('./stockRegisterRoutes'));
 router.use('/density-register', require('./densityRegisterRoutes'));

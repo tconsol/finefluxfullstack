@@ -42,5 +42,32 @@ module.exports = {
   smtpPass: process.env.SMTP_PASS,
   smtpFrom: process.env.SMTP_FROM,
 
-  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173'
+  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
+
+  // PhonePe Business (PG Standard Checkout). Leave unset in dev — the adapter throws a
+  // clear config error on first use rather than silently failing signature checks.
+  phonepe: {
+    merchantId: process.env.PHONEPE_MERCHANT_ID,
+    saltKey: process.env.PHONEPE_SALT_KEY,
+    saltIndex: process.env.PHONEPE_SALT_INDEX || '1',
+    baseUrl: process.env.PHONEPE_BASE_URL ||
+      (process.env.PHONEPE_ENV === 'production'
+        ? 'https://api.phonepe.com/apis/hermes'
+        : 'https://api-preprod.phonepe.com/apis/pg-sandbox')
+  },
+
+  // Paytm Business (PG). Same story — unset in dev is fine, real merchant credentials
+  // (obtained from your Paytm integration rep) get dropped straight into .env.
+  paytm: {
+    merchantId: process.env.PAYTM_MERCHANT_ID,
+    merchantKey: process.env.PAYTM_MERCHANT_KEY,
+    website: process.env.PAYTM_WEBSITE || (process.env.PAYTM_ENV === 'production' ? 'DEFAULT' : 'WEBSTAGING'),
+    baseUrl: process.env.PAYTM_BASE_URL ||
+      (process.env.PAYTM_ENV === 'production'
+        ? 'https://securegw.paytm.in'
+        : 'https://securegw-stage.paytm.in')
+  },
+
+  // How often the reconciliation sweep runs (minutes). 15 by default per spec.
+  reconciliationIntervalMinutes: parseInt(process.env.RECONCILIATION_INTERVAL_MINUTES || '15', 10)
 };

@@ -12,11 +12,18 @@ const authRoutes = require('./routes/authRoutes');
 const organizationRoutes = require('./routes/organizationRoutes');
 const orgScopedRoutes = require('./routes/orgScopedRoutes');
 const meterSalesRoutes = require('./routes/meterSalesRoutes');
+const paymentWebhookRoutes = require('./routes/paymentWebhookRoutes');
 
 const app = express();
 
 app.use(helmet());
 app.use(cors(corsConfig));
+
+// Mounted BEFORE the global JSON body-parser: PhonePe/Paytm webhook signatures are
+// computed over the exact raw request bytes, so this route captures its own
+// express.raw() body internally and must never pass through express.json() first.
+app.use('/api/payments/webhooks', paymentWebhookRoutes);
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(correlationId);

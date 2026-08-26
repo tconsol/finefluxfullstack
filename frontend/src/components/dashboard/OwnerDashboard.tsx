@@ -56,6 +56,7 @@ export function OwnerDashboard() {
   const [inventory, setInventory] = useState<any[]>([]);
   const [collections, setCollections] = useState<any[]>([]);
   const [bankDeposits, setBankDeposits] = useState<any[]>([]);
+  const [paymentTransactions, setPaymentTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState({
     employees: true,
     tanks: true,
@@ -114,8 +115,9 @@ export function OwnerDashboard() {
       axios.get(`${API_BASE}/api/organizations/${orgId}/inventories`).catch(() => ({ data: [] })),
       axios.get(`${API_BASE}/api/organizations/${orgId}/collections`).catch(() => ({ data: [] })),
       axios.get(`${API_BASE}/api/organizations/${orgId}/bank-deposits?page=0&size=1000`).catch(() => ({ data: [] })),
+      axios.get(`${API_BASE}/api/organizations/${orgId}/payments/today`).catch(() => ({ data: [] })),
     ])
-      .then(([empRes, tankRes, borrowRes, salesRes, expensesRes, inventoryRes, collectionsRes, depositsRes]) => {
+      .then(([empRes, tankRes, borrowRes, salesRes, expensesRes, inventoryRes, collectionsRes, depositsRes, paymentsRes]) => {
         setEmployees(safeArray(empRes.data));
         setTanks(safeArray(tankRes.data));
         setBorrowers(safeArray(borrowRes.data));
@@ -124,6 +126,7 @@ export function OwnerDashboard() {
         setInventory(safeArray(inventoryRes.data));
         setCollections(safeArray(collectionsRes.data));
         setBankDeposits(safeArray(depositsRes.data));
+        setPaymentTransactions(safeArray(paymentsRes.data));
         setLoading({ employees: false, tanks: false, borrowers: false, sales: false, expenses: false, inventory: false, cash: false });
       })
       .catch(err => {
@@ -295,7 +298,7 @@ export function OwnerDashboard() {
   }, [tanks, borrowers, sales, expenses]);
 
   // Cash position: how much has actually been collected vs. deposited to the bank vs.
-  // still owed by borrowers. CMS (bank cash-pickup service) isn't wired up yet.
+  // still owed by borrowers vs. received digitally today via PhonePe/Paytm (CMS).
   const cashBreakdown = useMemo(() => {
     const totalCashCollected = safeArray(collections).reduce(
       (sum: number, c: any) => sum + (Number(c.cashReceived) || 0), 0
@@ -307,9 +310,12 @@ export function OwnerDashboard() {
     const borrowersCash = safeArray(borrowers).reduce(
       (sum: number, b: any) => sum + (Number(b.amountBorrowed) || 0), 0
     );
-    const total = accountCash + handCash + borrowersCash;
-    return { accountCash, handCash, borrowersCash, total };
-  }, [collections, bankDeposits, borrowers]);
+    const cmsCash = safeArray(paymentTransactions)
+      .filter((t: any) => t.status === 'SUCCESS')
+      .reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0);
+    const total = accountCash + handCash + cmsCash + borrowersCash;
+    return { accountCash, handCash, cmsCash, borrowersCash, total };
+  }, [collections, bankDeposits, borrowers, paymentTransactions]);
 
   const getStockPercentage = (current: number, capacity: number) =>
     capacity ? Math.round((current / capacity) * 100) : 0;
@@ -660,11 +666,13 @@ export function OwnerDashboard() {
             </div>
             <div className="text-center space-y-1">
               <div className="flex items-center justify-center gap-1.5">
-                <Clock3 className="h-3.5 w-3.5 text-muted-foreground" />
+                <Clock3 className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
                 <p className="text-xs text-muted-foreground font-medium">CMS Cash</p>
               </div>
-              <p className="text-base font-bold text-muted-foreground">Coming Soon</p>
-              <p className="text-[10px] text-muted-foreground">Not yet integrated</p>
+              <p className="text-base font-bold text-cyan-600 dark:text-cyan-400">
+                {loading.cash ? '...' : formatIndianCurrency(cashBreakdown.cmsCash)}
+              </p>
+              <p className="text-[10px] text-muted-foreground">PhonePe / Paytm today</p>
             </div>
             <div className="text-center space-y-1">
               <div className="flex items-center justify-center gap-1.5">
@@ -684,7 +692,7 @@ export function OwnerDashboard() {
               <p className="text-base font-bold text-primary">
                 {loading.cash ? '...' : formatIndianCurrency(cashBreakdown.total)}
               </p>
-              <p className="text-[10px] text-muted-foreground">Account + Hand + Borrowers</p>
+              <p className="text-[10px] text-muted-foreground">Account + Hand + CMS + Borrowers</p>
             </div>
           </div>
         </CardContent>

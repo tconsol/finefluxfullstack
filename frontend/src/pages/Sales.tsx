@@ -42,8 +42,11 @@ import {
   Trash2,
   X,
   Eye,
+  Camera,
 } from "lucide-react";
 import PopupClose from "@/components/PopupClose";
+import MeterCaptureDialog from "@/components/sales/MeterCaptureDialog";
+import DsrSheetCaptureDialog from "@/components/sales/DsrSheetCaptureDialog";
 import dayjs from "dayjs";
 import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
 import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
@@ -492,6 +495,8 @@ export default function Sales() {
   const [deleteSaleId, setDeleteSaleId] = useState<string | null>(null);
   const [deleteSaleTarget, setDeleteSaleTarget] = useState<any>(null);
   const [validationError, setValidationError] = useState<{ title: string; message: string } | null>(null);
+  const [meterCaptureOpen, setMeterCaptureOpen] = useState(false);
+  const [dsrScanOpen, setDsrScanOpen] = useState(false);
   const deleteSaleMutation = useMutation({
     mutationFn: async (mongoId: string) => {
       // Use MongoDB ID for deletion
@@ -874,6 +879,72 @@ export default function Sales() {
     } else {
       setShowSummaryPopup(true);
     }
+  };
+
+  const handleDsrScanApply = (result: {
+    entries: Array<{ productName: string; gun: string; openingStock: string; closingStock: string; testingTotal: string; price: string }>;
+    cashReceived: string;
+    phonePay: string;
+    creditCard: string;
+    saleDate: string;
+    saleStartTime: string;
+    saleEndTime: string;
+  }) => {
+    const dateForEntries = result.saleDate || dayjs().format("YYYY-MM-DD");
+    const startForEntries = result.saleStartTime || dayjs().format("HH:mm");
+
+    const newEntries: FormState[] = [];
+    let skipped = 0;
+    for (const e of result.entries) {
+      const open = Number(e.openingStock) || 0;
+      const close = Number(e.closingStock) || 0;
+      const testing = Number(e.testingTotal) || 0;
+      const price = Number(e.price) || 0;
+      const netSale = Math.max(0, close - open - testing);
+      const salesAmount = Math.round(netSale * price * 100) / 100;
+
+      const alreadyInBatch = saleEntries.some((entry) => entry.fuel === e.productName && entry.gun === e.gun);
+      const alreadyInNew = newEntries.some((entry) => entry.fuel === e.productName && entry.gun === e.gun);
+      if (alreadyInBatch || alreadyInNew) {
+        skipped += 1;
+        continue;
+      }
+
+      newEntries.push({
+        ...initialFormState,
+        fuel: e.productName,
+        gun: e.gun,
+        openingStock: e.openingStock,
+        closingStock: e.closingStock,
+        testingTotal: e.testingTotal,
+        price: e.price,
+        saleLiters: netSale > 0 ? netSale.toFixed(3) : "",
+        salesInRupees: salesAmount > 0 ? salesAmount.toFixed(2) : "",
+        saleDate: dateForEntries,
+        saleStartTime: startForEntries,
+        saleEndTime: result.saleEndTime || "",
+        empId: form.empId,
+      });
+    }
+
+    if (newEntries.length === 0) {
+      toast({ title: "Nothing added", description: "All scanned products were already in the batch.", variant: "destructive" });
+      return;
+    }
+
+    setSaleEntries((prev) => [...prev, ...newEntries]);
+    setBatchCollectionForm({
+      totalCash: result.cashReceived,
+      totalUPI: result.phonePay,
+      totalCard: result.creditCard,
+    });
+    setSaleMode("batch");
+    toast({
+      title: `✓ ${newEntries.length} entr${newEntries.length === 1 ? "y" : "ies"} added from scan`,
+      description: skipped > 0 ? `${skipped} skipped as duplicates. Review before submitting.` : "Review before submitting.",
+      duration: 3000,
+    });
+    setTimeout(() => setShowSummaryPopup(true), 50);
   };
 
   const handleBatchSubmit = async () => {
@@ -1261,6 +1332,21 @@ export default function Sales() {
 
       {renderBatchSummaryDialog()}
 
+      <MeterCaptureDialog
+        open={meterCaptureOpen}
+        onOpenChange={setMeterCaptureOpen}
+        fieldLabel="Closing Stock"
+        onConfirm={(value) => setForm((f) => ({ ...f, closingStock: value }))}
+      />
+
+      <DsrSheetCaptureDialog
+        open={dsrScanOpen}
+        onOpenChange={setDsrScanOpen}
+        products={isEmployee ? availableProductsForEmployee : productsActive}
+        guns={guns}
+        onApply={handleDsrScanApply}
+      />
+
       {/* DSR Dialog */}
       <Dialog open={dsrOpen} onOpenChange={(open) => { if (!open) closeDsrDialog(); }}>
         <DialogContent className="sm:max-w-lg p-0">
@@ -1343,13 +1429,26 @@ export default function Sales() {
           <h1 className="text-3xl font-bold text-foreground">Sales & Collections</h1>
           <p className="text-muted-foreground">Record sales and track daily collections</p>
         </div>
-        {/* Point 2: Hide DSR and Sales History buttons for employees */}
-        {!isEmployee && (
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={openDsrDialog}><FileText className="mr-2 h-4 w-4" />Generate DSR</Button>
-            <Button variant="secondary" onClick={() => navigate("/sales-history")}><List className="mr-2 h-4 w-4" />View Sales History</Button>
-          </div>
-        )}
+        <div className="flex gap-2">
+          <Button
+            onClick={() => setDsrScanOpen(true)}
+            className="gap-2 bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/30 animate-pulse hover:animate-none"
+          >
+            <Camera className="h-4 w-4" />
+            Scan Full Sheet
+          </Button>
+          <Button variant="outline" onClick={() => setMeterCaptureOpen(true)} className="gap-2">
+            <Camera className="h-4 w-4" />
+            Scan One Reading
+          </Button>
+          {/* Point 2: Hide DSR and Sales History buttons for employees */}
+          {!isEmployee && (
+            <>
+              <Button variant="outline" onClick={openDsrDialog}><FileText className="mr-2 h-4 w-4" />Generate DSR</Button>
+              <Button variant="secondary" onClick={() => navigate("/sales-history")}><List className="mr-2 h-4 w-4" />View Sales History</Button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Collections Overview — disabled per request, kept for reference
